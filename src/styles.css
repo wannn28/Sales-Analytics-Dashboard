@@ -280,17 +280,46 @@ svg {
   align-items: center;
   font-weight: 600;
   padding: 7px 0;
+  gap: 6px;
 }
 .nav-section-toggle {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   font-weight: 600;
-  padding: 0;
+  padding: 2px 0;
   text-align: left;
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border-radius: 6px;
+}
+.nav-section-toggle:hover {
+  background: #efecec;
+}
+.nav-section-toggle span {
+  white-space: nowrap;
 }
 .nav-section-toggle svg {
   color: #898686;
+  flex-shrink: 0;
+}
+.nav-add {
+  display: grid !important;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  padding: 0 !important;
+  background: #fff !important;
+  border: 1px solid #e4dfdf;
+  border-radius: 50%;
+  flex-shrink: 0;
+  color: #5a5552;
+}
+.nav-add:hover {
+  background: #faf3f5 !important;
+  border-color: #d9cfd2;
+  color: #cf2a5d;
 }
 .collapse-button {
   display: flex !important;
@@ -302,7 +331,7 @@ svg {
 .card-toolbar > span > .collapse-button {
   background: transparent;
 }
-.nav-heading button {
+.nav-heading > button:not(.nav-section-toggle):not(.nav-add) {
   display: grid;
   place-items: center;
   padding: 1px;

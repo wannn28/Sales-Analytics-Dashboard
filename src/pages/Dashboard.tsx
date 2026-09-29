@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { X, LoaderCircle, Check, AlertCircle } from "lucide-react";
 import { Header } from "../components/layout/Header";
 import { IconSidebar } from "../components/layout/IconSidebar";
@@ -11,7 +11,7 @@ import { WorkspaceViews, RecentDealsPanel } from "../components/WorkspaceViews";
 import { money } from "../components/ui";
 import { DIALOG_ONLY, isAnalyticsShell, reportTitle } from "../nav";
 import { loadDashboard } from "../services/api";
-import type { DashboardData, Employee } from "../types/dashboard";
+import type { Customer, DashboardData, Employee } from "../types/dashboard";
 import type { User } from "../App";
 
 export function Dashboard({
@@ -29,13 +29,16 @@ export function Dashboard({
   const [search, setSearch] = useState("");
   const [navOpen, setNavOpen] = useState(false);
   const [active, setActive] = useState("Sales analytics");
-  const [title, setTitle] = useState("New report");
+  const [title, setTitle] = useState("Sales analytics");
   const [modal, setModal] = useState("");
   const [toast, setToast] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [retry, setRetry] = useState(0);
+  const [customAccounts, setCustomAccounts] = useState<Customer[]>([]);
+  const [customReports, setCustomReports] = useState<string[]>([]);
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const nextAccountId = useRef(-1);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -65,6 +68,19 @@ export function Dashboard({
     if (modal) dialogRef.current?.showModal();
     else dialogRef.current?.close();
   }, [modal]);
+
+  const navCustomers = useMemo(() => {
+    const fromApi = data?.customers ?? [];
+    const extras = customAccounts.filter(
+      (a) => !fromApi.some((c) => c.name.toLowerCase() === a.name.toLowerCase()),
+    );
+    return [...fromApi, ...extras];
+  }, [data?.customers, customAccounts]);
+
+  const viewData = useMemo(() => {
+    if (!data) return null;
+    return { ...data, customers: navCustomers };
+  }, [data, navCustomers]);
 
   const selectNav = (name: string) => {
     if (DIALOG_ONLY.has(name)) {
@@ -102,9 +118,10 @@ export function Dashboard({
 
   const showAnalytics =
     active === "Sales analytics" ||
-    active === "iQuee" ||
+    active === "All accounts" ||
     active === "New report" ||
-    active === "Analytics";
+    active === "Analytics" ||
+    customReports.includes(active);
 
   return (
     <div className="app-shell">
@@ -131,7 +148,8 @@ export function Dashboard({
         close={() => setNavOpen(false)}
         active={active}
         onSelect={selectNav}
-        customers={data?.customers ?? []}
+        customers={navCustomers}
+        customReports={customReports}
       />
       {navOpen && (
         <button
@@ -153,7 +171,7 @@ export function Dashboard({
               Try again
             </button>
           </div>
-        ) : !data ? (
+        ) : !viewData ? (
           <div className="status-screen">
             <LoaderCircle className="spinner" />
             <p>Putting your report together…</p>
@@ -161,7 +179,7 @@ export function Dashboard({
         ) : showAnalytics ? (
           <>
             <RevenueHeader
-              data={data}
+              data={viewData}
               members={members}
               period={period}
               setPeriod={setPeriod}
@@ -175,31 +193,31 @@ export function Dashboard({
             <div className="analytics-grid">
               <div className="left-analytics">
                 <SalesOverview
-                  platforms={data.platforms}
+                  platforms={viewData.platforms}
                   selected={platform}
                   onSelect={setPlatform}
                 />
                 <RevenueChart
                   period={period}
                   employee={employee}
-                  platform={data.platforms.find((p) => p.name === platform)}
+                  platform={viewData.platforms.find((p) => p.name === platform)}
                 />
               </div>
               <TeamPerformance
-                team={data.team}
+                team={viewData.team}
                 period={period}
                 search={search}
               />
             </div>
             <RecentDealsPanel
-              deals={data.deals}
+              deals={viewData.deals}
               onCustomer={selectNav}
             />
           </>
         ) : (
           <WorkspaceViews
             view={active}
-            data={data}
+            data={viewData}
             onSelectEmployee={setEmployee}
             onNavigate={selectNav}
             onCreate={() => setModal("Create report")}
@@ -232,11 +250,15 @@ export function Dashboard({
             onSubmit={(e) => {
               e.preventDefault();
               const form = new FormData(e.currentTarget);
-              const name = String(form.get("name"));
+              const name = String(form.get("name")).trim();
+              if (!name) return;
+              setCustomReports((list) =>
+                list.includes(name) ? list : [...list, name],
+              );
               setTitle(name);
-              setActive("New report");
+              setActive(name);
               setModal("");
-              setToast("Report view created");
+              setToast("Report created");
             }}
           >
             <label>
@@ -249,10 +271,51 @@ export function Dashboard({
               />
             </label>
             <p>
-              Create a named view of the current sales data. Export it to save a
-              copy.
+              Create a named report view of the current sales data. It appears
+              under My reports.
             </p>
             <button className="dark-button">Create report</button>
+          </form>
+        ) : modal === "Create dashboard" ? (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              const form = new FormData(e.currentTarget);
+              const name = String(form.get("name")).trim();
+              if (!name) return;
+              const exists = navCustomers.some(
+                (c) => c.name.toLowerCase() === name.toLowerCase(),
+              );
+              if (!exists) {
+                const id = nextAccountId.current--;
+                setCustomAccounts((list) => [
+                  ...list,
+                  { id, name, revenue: 0, deals: 0, lost: 0 },
+                ]);
+              }
+              setActive(name);
+              setModal("");
+              setToast(
+                exists
+                  ? "Opened existing account dashboard"
+                  : "Dashboard created",
+              );
+            }}
+          >
+            <label>
+              Account name
+              <input
+                name="name"
+                placeholder="Acme Trading"
+                required
+                maxLength={60}
+              />
+            </label>
+            <p>
+              Create an account dashboard under Dashboard → Accounts. Deals for
+              this account come from the sales database when available.
+            </p>
+            <button className="dark-button">Create dashboard</button>
           </form>
         ) : modal === "Revenue details" ? (
           <>
