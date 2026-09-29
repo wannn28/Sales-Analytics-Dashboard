@@ -41,6 +41,36 @@ export interface DynamicPoint {
   revenue: number;
   previous: number;
 }
+export interface Customer {
+  id: number;
+  name: string;
+  revenue: number;
+  deals: number;
+  lost: number;
+}
+export interface Notification {
+  id: number;
+  title: string;
+  body: string;
+  amount: number;
+  closedAt: string;
+  employee: string;
+  customer: string;
+}
+export interface Deal {
+  id: number;
+  customerId: number;
+  customer: string;
+  employeeId: number;
+  employee: string;
+  employeeInitials: string;
+  employeeColor: string;
+  platformId: number;
+  platform: string;
+  amount: number;
+  status: "won" | "lost" | "open" | string;
+  closedAt: string;
+}
 export interface DashboardData {
   summary: Summary;
   revenue: RevenuePoint[];
@@ -48,4 +78,7 @@ export interface DashboardData {
   dynamics: DynamicPoint[];
   team: Employee[];
   topSales: Employee | null;
+  customers: Customer[];
+  notifications: Notification[];
+  deals: Deal[];
 }

@@ -6,6 +6,9 @@ type Filter struct {
 	Start, End time.Time
 	Employee   int
 	Platform   int
+	Customer   int
+	Status     string
+	Limit      int
 }
 type Summary struct {
 	Revenue         float64 `json:"revenue"`
@@ -49,4 +52,34 @@ type DynamicPoint struct {
 	Date     string  `json:"date"`
 	Revenue  float64 `json:"revenue"`
 	Previous float64 `json:"previous"`
+}
+type Customer struct {
+	ID      int     `json:"id"`
+	Name    string  `json:"name"`
+	Revenue float64 `json:"revenue"`
+	Deals   int     `json:"deals"`
+	Lost    int     `json:"lost"`
+}
+type Notification struct {
+	ID       int     `json:"id"`
+	Title    string  `json:"title"`
+	Body     string  `json:"body"`
+	Amount   float64 `json:"amount"`
+	ClosedAt string  `json:"closedAt"`
+	Employee string  `json:"employee"`
+	Customer string  `json:"customer"`
+}
+type Deal struct {
+	ID               int     `json:"id"`
+	CustomerID       int     `json:"customerId"`
+	Customer         string  `json:"customer"`
+	EmployeeID       int     `json:"employeeId"`
+	Employee         string  `json:"employee"`
+	EmployeeInitials string  `json:"employeeInitials"`
+	EmployeeColor    string  `json:"employeeColor"`
+	PlatformID       int     `json:"platformId"`
+	Platform         string  `json:"platform"`
+	Amount           float64 `json:"amount"`
+	Status           string  `json:"status"`
+	ClosedAt         string  `json:"closedAt"`
 }

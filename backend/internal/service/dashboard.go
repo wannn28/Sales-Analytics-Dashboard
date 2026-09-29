@@ -27,11 +27,11 @@ func ParseFilter(q url.Values) (model.Filter, error) {
 	}
 	s, _ := time.Parse("2006-01-02", start)
 	e, _ := time.Parse("2006-01-02", end)
-	f := model.Filter{Start: s, End: e}
+	f := model.Filter{Start: s, End: e, Limit: 120}
 	if value := q.Get("employee"); value != "" {
 		id, err := strconv.Atoi(value)
-		if err != nil || id < 1 || id > 4 {
-			return f, fmt.Errorf("employee must be between 1 and 4")
+		if err != nil || id < 1 {
+			return f, fmt.Errorf("employee must be a positive integer")
 		}
 		f.Employee = id
 	}
@@ -41,6 +41,26 @@ func ParseFilter(q url.Values) (model.Filter, error) {
 			return f, fmt.Errorf("platform must be between 1 and 5")
 		}
 		f.Platform = id
+	}
+	if value := q.Get("customer"); value != "" {
+		id, err := strconv.Atoi(value)
+		if err != nil || id < 1 {
+			return f, fmt.Errorf("customer must be a positive integer")
+		}
+		f.Customer = id
+	}
+	if value := q.Get("status"); value != "" {
+		if value != "won" && value != "lost" && value != "open" {
+			return f, fmt.Errorf("status must be won, lost, or open")
+		}
+		f.Status = value
+	}
+	if value := q.Get("limit"); value != "" {
+		n, err := strconv.Atoi(value)
+		if err != nil || n < 1 || n > 500 {
+			return f, fmt.Errorf("limit must be between 1 and 500")
+		}
+		f.Limit = n
 	}
 	return f, nil
 }
@@ -68,6 +88,12 @@ func (s *Service) Get(ctx context.Context, kind string, f model.Filter) (any, er
 			}
 		}
 		return best, nil
+	case "customers":
+		return s.Repo.Customers(ctx, f)
+	case "notifications":
+		return s.Repo.Notifications(ctx, f)
+	case "deals":
+		return s.Repo.Deals(ctx, f)
 	}
 	return nil, fmt.Errorf("unknown dashboard resource")
 }

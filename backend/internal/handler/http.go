@@ -22,7 +22,7 @@ func Router(s *service.Service) http.Handler {
 		}
 		write(w, 200, map[string]string{"status": "ok", "database": "connected"})
 	})
-	for _, kind := range []string{"summary", "revenue", "platforms", "sales-dynamics", "team-performance", "top-sales"} {
+	for _, kind := range []string{"summary", "revenue", "platforms", "sales-dynamics", "team-performance", "top-sales", "customers", "notifications", "deals"} {
 		mux.HandleFunc("GET /api/v1/dashboard/"+kind, auth.Protect(func(w http.ResponseWriter, r *http.Request) {
 			f, err := service.ParseFilter(r.URL.Query())
 			if err != nil {

@@ -44,7 +44,7 @@ export function PlatformIcon({ name }: { name: string }) {
 export function Brand({ small = false }: { small?: boolean }) {
   return (
     <span className={`brand ${small ? "small" : ""}`}>
-      C<span />
+      Q<span />
     </span>
   );
 }
