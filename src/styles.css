@@ -2410,3 +2410,357 @@ dialog input {
     transition: none !important;
   }
 }
+
+/* CRM patterns matched from Pipedrive list/board, HubSpot deal views, Close activity, Attio records */
+.crm-screen {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 100%;
+  flex: 1;
+  animation: panel-in 0.28s ease;
+}
+.crm-chrome {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.crm-chrome-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.crm-chrome-top h1 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  color: #1d1d1d;
+}
+.crm-chrome-top p {
+  margin: 4px 0 0;
+  color: #7a7573;
+  font-size: 12px;
+  line-height: 1.45;
+}
+.crm-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+}
+.view-switch {
+  display: inline-flex;
+  background: #efeae7;
+  border-radius: 10px;
+  padding: 3px;
+  gap: 2px;
+}
+.view-switch button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 11px;
+  color: #5a5552;
+}
+.view-switch button.active {
+  background: #fff;
+  color: #1f1f1f;
+  box-shadow: 0 1px 3px #0001;
+}
+.preset-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.preset-filters button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #f3efed;
+  color: #3f3b39;
+  font-size: 11px;
+}
+.preset-filters button.active {
+  background: #1f1f1f;
+  color: #fff;
+}
+.preset-filters button b {
+  font-weight: 600;
+  opacity: 0.7;
+}
+.metrics-bar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(108px, 1fr));
+  gap: 1px;
+  background: #ece7e5;
+  border: 1px solid #ece7e5;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.metric-cell {
+  background: #fffcfb;
+  padding: 10px 12px;
+  min-width: 0;
+}
+.metric-cell span {
+  display: block;
+  color: #8a8582;
+  font-size: 10px;
+  margin-bottom: 4px;
+}
+.metric-cell strong {
+  display: block;
+  font-size: 14px;
+  letter-spacing: -0.02em;
+  color: #1f1f1f;
+}
+.metric-cell em {
+  display: block;
+  margin-top: 3px;
+  font-style: normal;
+  color: #9a9592;
+  font-size: 10px;
+}
+.crm-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(260px, 0.85fr);
+  gap: 12px;
+  align-items: stretch;
+  flex: 1;
+  min-height: 0;
+}
+.team-split {
+  grid-template-columns: minmax(280px, 0.9fr) minmax(0, 1.3fr);
+}
+.record-split {
+  grid-template-columns: minmax(0, 1.65fr) minmax(280px, 0.9fr);
+}
+.record-main,
+.stack-tables,
+.record-detail,
+.home-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  min-width: 0;
+}
+.section-label {
+  margin: 2px 0 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: #5a5552;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.property-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+.property-grid > div {
+  border: 1px solid #ece7e5;
+  border-radius: 10px;
+  background: #fffcfb;
+  padding: 10px 11px;
+}
+.property-grid label {
+  display: block;
+  color: #8a8582;
+  font-size: 10px;
+  margin-bottom: 4px;
+}
+.property-grid strong {
+  font-size: 13px;
+  color: #1f1f1f;
+}
+.deal-table-wrap.bleed {
+  border-radius: 12px;
+}
+.deal-table-wrap.compact {
+  min-height: 160px;
+  max-height: 280px;
+  flex: 0 1 auto;
+}
+.deal-table th.num,
+.deal-table td.num {
+  text-align: right;
+}
+.deal-table td {
+  height: 40px;
+  padding: 7px 10px;
+}
+.activity-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  background: #f7f4f2;
+  border-radius: 14px;
+  padding: 10px;
+  height: 100%;
+  overflow: hidden;
+}
+.activity-rail h2 {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: #5a5552;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.activity-rail ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+  flex: 1;
+}
+.activity-rail li {
+  display: grid;
+  grid-template-columns: 10px 1fr auto;
+  gap: 8px;
+  align-items: start;
+  padding: 8px 0;
+  border-bottom: 1px solid #ebe5e2;
+}
+.activity-rail i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-top: 4px;
+  background: #bbb;
+}
+.activity-rail i.won {
+  background: #2f9a57;
+}
+.activity-rail i.lost {
+  background: #cf2b5f;
+}
+.activity-rail strong {
+  display: block;
+  font-size: 11px;
+  margin-bottom: 2px;
+}
+.activity-rail span {
+  color: #8a8582;
+  font-size: 10px;
+}
+.activity-rail b {
+  font-size: 11px;
+  white-space: nowrap;
+}
+.pipeline-board-full {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  flex: 1;
+  min-height: 360px;
+  align-items: stretch;
+}
+.pipeline-stage {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: #f3efed;
+  border-radius: 14px;
+  padding: 8px;
+  min-height: 0;
+}
+.pipeline-stage header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 6px 10px;
+}
+.pipeline-stage header strong {
+  display: block;
+  font-size: 12px;
+}
+.pipeline-stage header span {
+  color: #8a8582;
+  font-size: 10px;
+}
+.pipeline-stage header b {
+  font-size: 12px;
+}
+.pipeline-stage ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow: auto;
+  flex: 1;
+}
+.deal-card {
+  width: 100%;
+  text-align: left;
+  background: #fffcfb;
+  border: 1px solid #ece7e5;
+  border-radius: 12px;
+  padding: 10px;
+  display: grid;
+  gap: 6px;
+}
+.deal-card:hover {
+  background: #faf5f6;
+}
+.deal-card strong {
+  font-size: 12px;
+}
+.deal-card-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #7a7573;
+  font-size: 10px;
+  flex-wrap: wrap;
+}
+.deal-card em {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-style: normal;
+  font-size: 12px;
+  font-weight: 600;
+}
+.deal-card small {
+  color: #8a8582;
+  font-weight: 400;
+}
+.pipeline-stage .empty-col {
+  color: #9a9592;
+  font-size: 11px;
+  padding: 16px 8px;
+  text-align: center;
+}
+.home-rail .side-account-list {
+  background: #f7f4f2;
+  border-radius: 14px;
+  padding: 10px;
+}
+@media (max-width: 1100px) {
+  .crm-split,
+  .team-split,
+  .record-split,
+  .pipeline-board-full {
+    grid-template-columns: 1fr;
+  }
+  .property-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

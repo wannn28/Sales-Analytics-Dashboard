@@ -1,4 +1,5 @@
 import { useMemo, useState, type ReactNode } from "react";
+import { LayoutGrid, List } from "lucide-react";
 import {
   Bar,
   BarChart,
@@ -16,6 +17,7 @@ import type {
 } from "../types/dashboard";
 
 type StatusFilter = "all" | "won" | "lost";
+type SurfaceMode = "list" | "board";
 
 function EmptyState({ title, body }: { title: string; body: string }) {
   return (
@@ -26,71 +28,93 @@ function EmptyState({ title, body }: { title: string; body: string }) {
   );
 }
 
-function PanelHeader({
+/** HubSpot/Pipedrive-style chrome: title row + list/board + filter presets */
+function RecordChrome({
   title,
   subtitle,
-  actions,
+  mode,
+  onMode,
+  status,
+  onStatus,
+  counts,
+  extra,
 }: {
   title: string;
-  subtitle: string;
-  actions?: ReactNode;
-}) {
-  return (
-    <div className="panel-header dense-header">
-      <div>
-        <h1>{title}</h1>
-        <p>{subtitle}</p>
-      </div>
-      {actions}
-    </div>
-  );
-}
-
-function StatusChips({
-  value,
-  onChange,
-  counts,
-}: {
-  value: StatusFilter;
-  onChange: (v: StatusFilter) => void;
+  subtitle?: string;
+  mode?: SurfaceMode;
+  onMode?: (m: SurfaceMode) => void;
+  status: StatusFilter;
+  onStatus: (v: StatusFilter) => void;
   counts: { all: number; won: number; lost: number };
+  extra?: ReactNode;
 }) {
   return (
-    <div className="filter-bar" role="tablist" aria-label="Deal status">
-      {(
-        [
-          ["all", "All", counts.all],
-          ["won", "Won", counts.won],
-          ["lost", "Lost", counts.lost],
-        ] as const
-      ).map(([key, label, count]) => (
-        <button
-          key={key}
-          role="tab"
-          aria-selected={value === key}
-          className={value === key ? "active" : ""}
-          onClick={() => onChange(key)}
-        >
-          {label}
-          <b>{count}</b>
-        </button>
-      ))}
+    <div className="crm-chrome">
+      <div className="crm-chrome-top">
+        <div>
+          <h1>{title}</h1>
+          {subtitle && <p>{subtitle}</p>}
+        </div>
+        {mode && onMode && (
+          <div className="view-switch" role="tablist" aria-label="View mode">
+            <button
+              role="tab"
+              aria-selected={mode === "list"}
+              className={mode === "list" ? "active" : ""}
+              onClick={() => onMode("list")}
+            >
+              <List size={14} /> List
+            </button>
+            <button
+              role="tab"
+              aria-selected={mode === "board"}
+              className={mode === "board" ? "active" : ""}
+              onClick={() => onMode("board")}
+            >
+              <LayoutGrid size={14} /> Board
+            </button>
+          </div>
+        )}
+      </div>
+      <div className="crm-toolbar">
+        <div className="preset-filters" role="tablist" aria-label="Deal filters">
+          {(
+            [
+              ["all", "All deals", counts.all],
+              ["won", "Closed won", counts.won],
+              ["lost", "Closed lost", counts.lost],
+            ] as const
+          ).map(([key, label, count]) => (
+            <button
+              key={key}
+              role="tab"
+              aria-selected={status === key}
+              className={status === key ? "active" : ""}
+              onClick={() => onStatus(key)}
+            >
+              {label}
+              <b>{count}</b>
+            </button>
+          ))}
+        </div>
+        {extra}
+      </div>
     </div>
   );
 }
 
-function StatStrip({
+function MetricsBar({
   items,
 }: {
   items: { label: string; value: string; hint?: string }[];
 }) {
   return (
-    <div className="stat-strip">
+    <div className="metrics-bar" aria-label="View metrics">
       {items.map((item) => (
-        <div key={item.label}>
-          <label>{item.label}</label>
+        <div key={item.label} className="metric-cell">
+          <span>{item.label}</span>
           <strong>{item.value}</strong>
-          {item.hint && <span>{item.hint}</span>}
+          {item.hint && <em>{item.hint}</em>}
         </div>
       ))}
     </div>
@@ -102,11 +126,13 @@ function DealTable({
   onCustomer,
   onOwner,
   showCustomer = true,
+  compact = false,
 }: {
   deals: Deal[];
   onCustomer?: (name: string) => void;
   onOwner?: (id: number) => void;
   showCustomer?: boolean;
+  compact?: boolean;
 }) {
   if (!deals.length)
     return (
@@ -116,14 +142,14 @@ function DealTable({
       />
     );
   return (
-    <div className="deal-table-wrap">
+    <div className={`deal-table-wrap ${compact ? "compact" : "bleed"}`}>
       <table className="deal-table">
         <thead>
           <tr>
             {showCustomer && <th>Account</th>}
             <th>Owner</th>
             <th>Platform</th>
-            <th>Amount</th>
+            <th className="num">Amount</th>
             <th>Status</th>
             <th>Close date</th>
           </tr>
@@ -171,7 +197,11 @@ function DealTable({
               <td className="num">{money(deal.amount, 0)}</td>
               <td>
                 <span className={`status-pill ${deal.status}`}>
-                  {deal.status}
+                  {deal.status === "won"
+                    ? "Closed won"
+                    : deal.status === "lost"
+                      ? "Closed lost"
+                      : deal.status}
                 </span>
               </td>
               <td className="muted">{deal.closedAt}</td>
@@ -183,32 +213,112 @@ function DealTable({
   );
 }
 
-function ActivityTimeline({ deals }: { deals: Deal[] }) {
+/** Pipedrive/Close/Attio-style horizontal stage columns */
+function PipelineBoard({
+  deals,
+  onCustomer,
+}: {
+  deals: Deal[];
+  onCustomer?: (name: string) => void;
+}) {
+  const columns = [
+    {
+      key: "won",
+      label: "Closed won",
+      rows: deals.filter((d) => d.status === "won"),
+    },
+    {
+      key: "lost",
+      label: "Closed lost",
+      rows: deals.filter((d) => d.status === "lost"),
+    },
+  ];
+  return (
+    <div className="pipeline-board-full">
+      {columns.map((col) => {
+        const total = col.rows.reduce((n, d) => n + d.amount, 0);
+        return (
+          <section key={col.key} className={`pipeline-stage ${col.key}`}>
+            <header>
+              <div>
+                <strong>{col.label}</strong>
+                <span>{col.rows.length} deals</span>
+              </div>
+              <b>{money(total, 0)}</b>
+            </header>
+            <ul>
+              {col.rows.map((deal) => (
+                <li key={deal.id}>
+                  <button
+                    className="deal-card"
+                    onClick={() => onCustomer?.(deal.customer)}
+                  >
+                    <strong>{deal.customer}</strong>
+                    <span className="deal-card-meta">
+                      <Avatar
+                        person={{
+                          name: deal.employee,
+                          initials: deal.employeeInitials,
+                          color: deal.employeeColor,
+                        }}
+                        small
+                      />
+                      {deal.employee}
+                      <i>·</i>
+                      <PlatformIcon name={deal.platform} />
+                      {deal.platform}
+                    </span>
+                    <em>
+                      {money(deal.amount, 0)}
+                      <small>{deal.closedAt}</small>
+                    </em>
+                  </button>
+                </li>
+              ))}
+              {!col.rows.length && (
+                <li className="empty-col">No deals in this stage</li>
+              )}
+            </ul>
+          </section>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Close-style chronological activity rail */
+function ActivityRail({ deals, title = "Activity" }: { deals: Deal[]; title?: string }) {
   if (!deals.length)
     return (
-      <EmptyState
-        title="No activity yet"
-        body="Closed deals for this view will appear in the timeline."
-      />
+      <aside className="activity-rail">
+        <h2>{title}</h2>
+        <EmptyState
+          title="No activity yet"
+          body="Closed deals for this view will appear here."
+        />
+      </aside>
     );
   return (
-    <ol className="activity-timeline">
-      {deals.slice(0, 12).map((deal) => (
-        <li key={deal.id}>
-          <i className={deal.status} />
-          <div>
-            <strong>
-              {deal.status === "won" ? "Deal won" : "Deal lost"} ·{" "}
-              {deal.customer}
-            </strong>
-            <span>
-              {deal.employee} · {deal.platform} · {deal.closedAt}
-            </span>
-          </div>
-          <b>{money(deal.amount, 0)}</b>
-        </li>
-      ))}
-    </ol>
+    <aside className="activity-rail">
+      <h2>{title}</h2>
+      <ol>
+        {deals.slice(0, 40).map((deal) => (
+          <li key={deal.id}>
+            <i className={deal.status} />
+            <div>
+              <strong>
+                {deal.status === "won" ? "Deal won" : "Deal lost"} ·{" "}
+                {deal.customer}
+              </strong>
+              <span>
+                {deal.employee} · {deal.platform} · {deal.closedAt}
+              </span>
+            </div>
+            <b>{money(deal.amount, 0)}</b>
+          </li>
+        ))}
+      </ol>
+    </aside>
   );
 }
 
@@ -232,47 +342,13 @@ function MiniTrend({ deals }: { deals: Deal[] }) {
     );
   return (
     <div className="mini-trend">
-      <ResponsiveContainer width="100%" height={120}>
-        <BarChart data={points} margin={{ top: 8, right: 4, left: 0, bottom: 0 }}>
+      <ResponsiveContainer width="100%" height={110}>
+        <BarChart data={points} margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
           <XAxis dataKey="label" tick={{ fontSize: 10, fill: "#8a8582" }} />
           <Tooltip formatter={(v) => money(Number(v), 0)} />
-          <Bar dataKey="revenue" fill="#cf2b5f" radius={[6, 6, 2, 2]} />
+          <Bar dataKey="revenue" fill="#cf2b5f" radius={[5, 5, 2, 2]} />
         </BarChart>
       </ResponsiveContainer>
-    </div>
-  );
-}
-
-function PipelineColumns({ deals }: { deals: Deal[] }) {
-  const won = deals.filter((d) => d.status === "won");
-  const lost = deals.filter((d) => d.status === "lost");
-  const columns = [
-    { key: "won", label: "Won", rows: won },
-    { key: "lost", label: "Lost", rows: lost },
-  ];
-  return (
-    <div className="pipeline-board">
-      {columns.map((col) => (
-        <div key={col.key} className="pipeline-col">
-          <header>
-            <span>{col.label}</span>
-            <b>{col.rows.length}</b>
-            <em>{money(col.rows.reduce((n, d) => n + d.amount, 0), 0)}</em>
-          </header>
-          <ul>
-            {col.rows.slice(0, 8).map((deal) => (
-              <li key={deal.id}>
-                <strong>{deal.customer}</strong>
-                <span>
-                  {deal.employee} · {deal.platform}
-                </span>
-                <b>{money(deal.amount, 0)}</b>
-              </li>
-            ))}
-            {!col.rows.length && <li className="empty-col">No deals</li>}
-          </ul>
-        </div>
-      ))}
     </div>
   );
 }
@@ -288,11 +364,27 @@ function useDealFilter(deals: Deal[]) {
     [deals],
   );
   const filtered = useMemo(
-    () =>
-      status === "all" ? deals : deals.filter((d) => d.status === status),
+    () => (status === "all" ? deals : deals.filter((d) => d.status === status)),
     [deals, status],
   );
   return { status, setStatus, counts, filtered };
+}
+
+function metricItems(deals: Deal[]) {
+  const won = deals.filter((d) => d.status === "won");
+  const lost = deals.filter((d) => d.status === "lost");
+  const wonValue = won.reduce((n, d) => n + d.amount, 0);
+  const avg = won.length ? wonValue / won.length : 0;
+  const rate =
+    won.length + lost.length
+      ? (won.length / (won.length + lost.length)) * 100
+      : 0;
+  return [
+    { label: "Total amount", value: money(wonValue, 0), hint: "Closed won" },
+    { label: "Deals", value: String(deals.length) },
+    { label: "Avg won deal", value: money(avg, 0) },
+    { label: "Win rate", value: `${rate.toFixed(0)}%` },
+  ];
 }
 
 function SalesListView({
@@ -307,6 +399,7 @@ function SalesListView({
   onCustomer: (name: string) => void;
 }) {
   const { status, setStatus, counts, filtered } = useDealFilter(deals);
+  const [mode, setMode] = useState<SurfaceMode>("list");
   const [owner, setOwner] = useState<number | null>(null);
   const rows = owner
     ? filtered.filter((d) => d.employeeId === owner)
@@ -319,77 +412,51 @@ function SalesListView({
       />
     );
   return (
-    <section className="workspace-panel dense-panel">
-      <PanelHeader
+    <section className="crm-screen">
+      <RecordChrome
         title="Sales list"
-        subtitle="Every closed deal in the selected timeframe, with owner, platform, and amount."
-        actions={
-          <StatusChips value={status} onChange={setStatus} counts={counts} />
+        subtitle="List and board views of every closed deal in the selected timeframe."
+        mode={mode}
+        onMode={setMode}
+        status={status}
+        onStatus={setStatus}
+        counts={counts}
+        extra={
+          <div className="owner-filter">
+            <button
+              className={!owner ? "active" : ""}
+              onClick={() => setOwner(null)}
+            >
+              Everyone
+            </button>
+            {team.map((person) => (
+              <button
+                key={person.id}
+                className={owner === person.id ? "active" : ""}
+                onClick={() =>
+                  setOwner(owner === person.id ? null : person.id)
+                }
+              >
+                <Avatar person={person} small />
+                {person.name.split(" ")[0]}
+              </button>
+            ))}
+          </div>
         }
       />
-      <StatStrip
-        items={[
-          {
-            label: "Deals shown",
-            value: String(rows.length),
-          },
-          {
-            label: "Won value",
-            value: money(
-              rows
-                .filter((d) => d.status === "won")
-                .reduce((n, d) => n + d.amount, 0),
-              0,
-            ),
-          },
-          {
-            label: "Owners",
-            value: String(team.length),
-          },
-          {
-            label: "Avg deal",
-            value: money(
-              rows.length
-                ? rows.reduce((n, d) => n + d.amount, 0) / rows.length
-                : 0,
-              0,
-            ),
-          },
-        ]}
-      />
-      <div className="owner-filter">
-        <button
-          className={!owner ? "active" : ""}
-          onClick={() => setOwner(null)}
-        >
-          All owners
-        </button>
-        {team.map((person) => (
-          <button
-            key={person.id}
-            className={owner === person.id ? "active" : ""}
-            onClick={() =>
-              setOwner(owner === person.id ? null : person.id)
-            }
-          >
-            <Avatar person={person} small />
-            {person.name}
-          </button>
-        ))}
-      </div>
-      <div className="dense-split">
-        <DealTable
-          deals={rows}
-          onCustomer={onCustomer}
-          onOwner={onOwner}
-        />
-        <aside className="dense-side">
-          <h2>Pipeline</h2>
-          <PipelineColumns deals={rows} />
-          <h2>Recent activity</h2>
-          <ActivityTimeline deals={rows} />
-        </aside>
-      </div>
+      <MetricsBar items={metricItems(rows)} />
+      {mode === "list" ? (
+        <div className="crm-split">
+          <DealTable
+            deals={rows}
+            onCustomer={onCustomer}
+            onOwner={onOwner}
+          />
+          <ActivityRail deals={rows} title="Recent activity" />
+        </div>
+      ) : (
+        <PipelineBoard deals={rows} onCustomer={onCustomer} />
+      )}
     </section>
   );
 }
@@ -412,11 +479,17 @@ function GoalsView({
     );
   const target = Math.max(...team.map((p) => p.revenue), 1) * 1.15;
   return (
-    <section className="workspace-panel dense-panel">
-      <PanelHeader
-        title="Goals"
-        subtitle="Progress toward period revenue targets, with contributing deals from the sales database."
-      />
+    <section className="crm-screen">
+      <div className="crm-chrome">
+        <div className="crm-chrome-top">
+          <div>
+            <h1>Goals</h1>
+            <p>
+              Progress toward period revenue targets with contributing deals.
+            </p>
+          </div>
+        </div>
+      </div>
       <div className="goals-grid">
         {team.map((person) => {
           const personDeals = deals.filter(
@@ -426,12 +499,16 @@ function GoalsView({
           return (
             <article key={person.id} className="goal-card">
               <header>
-                <button className="owner-cell" onClick={() => onOwner(person.id)}>
+                <button
+                  className="owner-cell"
+                  onClick={() => onOwner(person.id)}
+                >
                   <Avatar person={person} />
                   <span>
                     <strong>{person.name}</strong>
                     <small>
-                      {person.deals} won · {person.winRate.toFixed(0)}% win rate
+                      {person.deals} closed won · {person.winRate.toFixed(0)}%
+                      win rate
                     </small>
                   </span>
                 </button>
@@ -441,14 +518,10 @@ function GoalsView({
                 <i style={{ width: `${pct}%` }} />
               </div>
               <span className="goal-meta">
-                {pct.toFixed(0)}% of {money(target, 0)} stretch target · KPI{" "}
+                {pct.toFixed(0)}% of {money(target, 0)} stretch · KPI{" "}
                 {person.kpi.toFixed(2)}
               </span>
-              <DealTable
-                deals={personDeals.slice(0, 6)}
-                showCustomer
-                onOwner={onOwner}
-              />
+              <DealTable deals={personDeals.slice(0, 8)} showCustomer compact />
             </article>
           );
         })}
@@ -471,6 +544,7 @@ function TeamView({
   const [selected, setSelected] = useState(team[0]?.id ?? 0);
   const person = team.find((p) => p.id === selected) ?? team[0];
   const personDeals = deals.filter((d) => d.employeeId === person?.id);
+  const { status, setStatus, counts, filtered } = useDealFilter(personDeals);
   if (!team.length)
     return (
       <EmptyState
@@ -479,22 +553,26 @@ function TeamView({
       />
     );
   return (
-    <section className="workspace-panel dense-panel">
-      <PanelHeader
-        title="Team"
-        subtitle="Roster performance with live deal history for each salesperson."
-      />
-      <div className="dense-split team-dense">
-        <div className="deal-table-wrap">
+    <section className="crm-screen">
+      <div className="crm-chrome">
+        <div className="crm-chrome-top">
+          <div>
+            <h1>Team</h1>
+            <p>Roster performance with live deal history per owner.</p>
+          </div>
+        </div>
+      </div>
+      <div className="crm-split team-split">
+        <div className="deal-table-wrap bleed">
           <table className="deal-table">
             <thead>
               <tr>
                 <th>Salesperson</th>
-                <th>Revenue</th>
-                <th>Won</th>
-                <th>Leads</th>
-                <th>KPI</th>
-                <th>Win rate</th>
+                <th className="num">Revenue</th>
+                <th className="num">Closed won</th>
+                <th className="num">Leads</th>
+                <th className="num">KPI</th>
+                <th className="num">Win rate</th>
               </tr>
             </thead>
             <tbody>
@@ -523,28 +601,22 @@ function TeamView({
             </tbody>
           </table>
         </div>
-        <aside className="dense-side">
-          <h2>{person?.name} deals</h2>
-          <StatStrip
-            items={[
-              {
-                label: "Revenue",
-                value: money(person?.revenue ?? 0, 0),
-              },
-              {
-                label: "Open rows",
-                value: String(personDeals.length),
-              },
-            ]}
+        <div className="record-detail">
+          <RecordChrome
+            title={person?.name ?? "Member"}
+            status={status}
+            onStatus={setStatus}
+            counts={counts}
           />
+          <MetricsBar items={metricItems(filtered)} />
           <DealTable
-            deals={personDeals}
+            deals={filtered}
             onCustomer={onCustomer}
             showCustomer
+            compact
           />
-          <h2>Activity</h2>
-          <ActivityTimeline deals={personDeals} />
-        </aside>
+          <ActivityRail deals={filtered} />
+        </div>
       </div>
     </section>
   );
@@ -561,13 +633,20 @@ function WorkspaceView({
   deals: Deal[];
   onCustomer: (name: string) => void;
 }) {
+  const [mode, setMode] = useState<SurfaceMode>("list");
+  const { status, setStatus, counts, filtered } = useDealFilter(deals);
   return (
-    <section className="workspace-panel dense-panel">
-      <PanelHeader
+    <section className="crm-screen">
+      <RecordChrome
         title="Workspace"
-        subtitle="Accounts, channels, and recent deal flow connected to your sales database."
+        subtitle="Accounts, channels, and deal flow from the sales database."
+        mode={mode}
+        onMode={setMode}
+        status={status}
+        onStatus={setStatus}
+        counts={counts}
       />
-      <StatStrip
+      <MetricsBar
         items={[
           { label: "Accounts", value: String(customers.length) },
           {
@@ -578,82 +657,81 @@ function WorkspaceView({
             ),
           },
           { label: "Platforms", value: String(platforms.length) },
-          { label: "Recent deals", value: String(deals.length) },
+          { label: "Deals shown", value: String(filtered.length) },
         ]}
       />
-      <div className="dense-split">
-        <div>
-          <h2 className="panel-section-title">Accounts</h2>
-          <div className="deal-table-wrap">
-            <table className="deal-table">
-              <thead>
-                <tr>
-                  <th>Account</th>
-                  <th>Revenue</th>
-                  <th>Won</th>
-                  <th>Lost</th>
-                  <th>Win rate</th>
-                </tr>
-              </thead>
-              <tbody>
-                {customers.map((customer) => {
-                  const total = customer.deals + customer.lost;
-                  const rate = total
-                    ? (customer.deals / total) * 100
-                    : 0;
-                  return (
-                    <tr
-                      key={customer.id}
-                      className="click-row"
-                      onClick={() => onCustomer(customer.name)}
-                    >
-                      <td>{customer.name}</td>
-                      <td className="num">{money(customer.revenue, 0)}</td>
-                      <td className="num">{customer.deals}</td>
-                      <td className="num">{customer.lost}</td>
-                      <td className="num">{rate.toFixed(0)}%</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-          <h2 className="panel-section-title">Platforms</h2>
-          <div className="deal-table-wrap">
-            <table className="deal-table">
-              <thead>
-                <tr>
-                  <th>Platform</th>
-                  <th>Revenue</th>
-                  <th>Deals</th>
-                  <th>Share</th>
-                </tr>
-              </thead>
-              <tbody>
-                {platforms.map((platform) => (
-                  <tr key={platform.id}>
-                    <td>
-                      <span className="platform-cell">
-                        <PlatformIcon name={platform.name} />
-                        {platform.name}
-                      </span>
-                    </td>
-                    <td className="num">{money(platform.revenue, 0)}</td>
-                    <td className="num">{platform.deals}</td>
-                    <td className="num">{platform.share.toFixed(1)}%</td>
+      {mode === "board" ? (
+        <PipelineBoard deals={filtered} onCustomer={onCustomer} />
+      ) : (
+        <div className="crm-split">
+          <div className="stack-tables">
+            <h2 className="section-label">Accounts</h2>
+            <div className="deal-table-wrap bleed">
+              <table className="deal-table">
+                <thead>
+                  <tr>
+                    <th>Account</th>
+                    <th className="num">Revenue</th>
+                    <th className="num">Won</th>
+                    <th className="num">Lost</th>
+                    <th className="num">Win rate</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {customers.map((customer) => {
+                    const total = customer.deals + customer.lost;
+                    const rate = total
+                      ? (customer.deals / total) * 100
+                      : 0;
+                    return (
+                      <tr
+                        key={customer.id}
+                        className="click-row"
+                        onClick={() => onCustomer(customer.name)}
+                      >
+                        <td>{customer.name}</td>
+                        <td className="num">{money(customer.revenue, 0)}</td>
+                        <td className="num">{customer.deals}</td>
+                        <td className="num">{customer.lost}</td>
+                        <td className="num">{rate.toFixed(0)}%</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <h2 className="section-label">Platforms</h2>
+            <div className="deal-table-wrap bleed compact">
+              <table className="deal-table">
+                <thead>
+                  <tr>
+                    <th>Platform</th>
+                    <th className="num">Revenue</th>
+                    <th className="num">Deals</th>
+                    <th className="num">Share</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {platforms.map((platform) => (
+                    <tr key={platform.id}>
+                      <td>
+                        <span className="platform-cell">
+                          <PlatformIcon name={platform.name} />
+                          {platform.name}
+                        </span>
+                      </td>
+                      <td className="num">{money(platform.revenue, 0)}</td>
+                      <td className="num">{platform.deals}</td>
+                      <td className="num">{platform.share.toFixed(1)}%</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
+          <ActivityRail deals={filtered} />
         </div>
-        <aside className="dense-side">
-          <h2>Recent activity</h2>
-          <ActivityTimeline deals={deals} />
-          <h2>Pipeline</h2>
-          <PipelineColumns deals={deals.slice(0, 40)} />
-        </aside>
-      </div>
+      )}
     </section>
   );
 }
@@ -661,11 +739,15 @@ function WorkspaceView({
 function NotificationsView({ items }: { items: Notification[] }) {
   if (!items.length)
     return (
-      <section className="workspace-panel dense-panel">
-        <PanelHeader
-          title="Notifications"
-          subtitle="Deal activity from the current reporting window."
-        />
+      <section className="crm-screen">
+        <div className="crm-chrome">
+          <div className="crm-chrome-top">
+            <div>
+              <h1>Notifications</h1>
+              <p>Deal activity from the current reporting window.</p>
+            </div>
+          </div>
+        </div>
         <EmptyState
           title="You're all caught up"
           body="No new deal notifications for this period."
@@ -673,19 +755,23 @@ function NotificationsView({ items }: { items: Notification[] }) {
       </section>
     );
   return (
-    <section className="workspace-panel dense-panel">
-      <PanelHeader
-        title="Notifications"
-        subtitle="Recent closed deals from the sales database."
-      />
-      <div className="deal-table-wrap">
+    <section className="crm-screen">
+      <div className="crm-chrome">
+        <div className="crm-chrome-top">
+          <div>
+            <h1>Notifications</h1>
+            <p>Recent closed deals from the sales database.</p>
+          </div>
+        </div>
+      </div>
+      <div className="deal-table-wrap bleed">
         <table className="deal-table">
           <thead>
             <tr>
               <th>Event</th>
               <th>Owner</th>
               <th>Account</th>
-              <th>Amount</th>
+              <th className="num">Amount</th>
               <th>Date</th>
             </tr>
           </thead>
@@ -706,6 +792,7 @@ function NotificationsView({ items }: { items: Notification[] }) {
   );
 }
 
+/** Close/HubSpot record page: properties + deals left, activity right */
 function CustomerView({
   customer,
   deals,
@@ -716,13 +803,11 @@ function CustomerView({
   onOwner: (id: number) => void;
 }) {
   const accountDeals = useMemo(
-    () =>
-      customer
-        ? deals.filter((d) => d.customerId === customer.id)
-        : [],
+    () => (customer ? deals.filter((d) => d.customerId === customer.id) : []),
     [customer, deals],
   );
   const { status, setStatus, counts, filtered } = useDealFilter(accountDeals);
+  const [mode, setMode] = useState<SurfaceMode>("list");
   if (!customer)
     return (
       <EmptyState
@@ -737,46 +822,106 @@ function CustomerView({
   const total = customer.deals + customer.lost;
   const winRate = total ? (customer.deals / total) * 100 : 0;
   const topOwner = [...won].sort((a, b) => b.amount - a.amount)[0];
+  const byPlatform = useMemo(() => {
+    const map = new Map<string, { revenue: number; deals: number }>();
+    for (const d of won) {
+      const cur = map.get(d.platform) ?? { revenue: 0, deals: 0 };
+      cur.revenue += d.amount;
+      cur.deals += 1;
+      map.set(d.platform, cur);
+    }
+    return [...map.entries()].sort((a, b) => b[1].revenue - a[1].revenue);
+  }, [won]);
+
   return (
-    <section className="workspace-panel dense-panel">
-      <PanelHeader
+    <section className="crm-screen">
+      <RecordChrome
         title={customer.name}
-        subtitle="Account record with deals, trend, and activity from the sales database."
-        actions={
-          <StatusChips value={status} onChange={setStatus} counts={counts} />
-        }
+        subtitle="Account record · deals, properties, and activity"
+        mode={mode}
+        onMode={setMode}
+        status={status}
+        onStatus={setStatus}
+        counts={counts}
       />
-      <StatStrip
+      <MetricsBar
         items={[
           { label: "Revenue", value: money(customer.revenue, 2) },
-          { label: "Won deals", value: String(customer.deals) },
-          { label: "Lost deals", value: String(customer.lost) },
+          { label: "Closed won", value: String(customer.deals) },
+          { label: "Closed lost", value: String(customer.lost) },
           { label: "Win rate", value: `${winRate.toFixed(0)}%` },
           { label: "Avg won deal", value: money(avg, 0) },
-          {
-            label: "Top owner",
-            value: topOwner?.employee ?? "—",
-          },
+          { label: "Deal owner", value: topOwner?.employee ?? "—" },
         ]}
       />
-      <div className="dense-split">
-        <div>
-          <h2 className="panel-section-title">Deals</h2>
-          <DealTable
-            deals={filtered}
-            showCustomer={false}
-            onOwner={onOwner}
-          />
+      {mode === "board" ? (
+        <PipelineBoard deals={filtered} />
+      ) : (
+        <div className="crm-split record-split">
+          <div className="record-main">
+            <div className="property-grid">
+              <div>
+                <label>Primary owner</label>
+                <strong>{topOwner?.employee ?? "—"}</strong>
+              </div>
+              <div>
+                <label>Top platform</label>
+                <strong>{byPlatform[0]?.[0] ?? "—"}</strong>
+              </div>
+              <div>
+                <label>Last close</label>
+                <strong>{accountDeals[0]?.closedAt ?? "—"}</strong>
+              </div>
+              <div>
+                <label>Open rows</label>
+                <strong>{accountDeals.length}</strong>
+              </div>
+            </div>
+            <h2 className="section-label">Deals</h2>
+            <DealTable
+              deals={filtered}
+              showCustomer={false}
+              onOwner={onOwner}
+            />
+            <h2 className="section-label">Revenue by month</h2>
+            <MiniTrend deals={accountDeals} />
+            <h2 className="section-label">Platform mix</h2>
+            <div className="deal-table-wrap bleed compact">
+              <table className="deal-table">
+                <thead>
+                  <tr>
+                    <th>Platform</th>
+                    <th className="num">Won deals</th>
+                    <th className="num">Revenue</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {byPlatform.map(([name, stats]) => (
+                    <tr key={name}>
+                      <td>
+                        <span className="platform-cell">
+                          <PlatformIcon name={name} />
+                          {name}
+                        </span>
+                      </td>
+                      <td className="num">{stats.deals}</td>
+                      <td className="num">{money(stats.revenue, 0)}</td>
+                    </tr>
+                  ))}
+                  {!byPlatform.length && (
+                    <tr>
+                      <td colSpan={3} className="muted">
+                        No won deals for this account in the period.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <ActivityRail deals={accountDeals} title="Activity" />
         </div>
-        <aside className="dense-side">
-          <h2>Revenue trend</h2>
-          <MiniTrend deals={accountDeals} />
-          <h2>Pipeline</h2>
-          <PipelineColumns deals={accountDeals} />
-          <h2>Activity</h2>
-          <ActivityTimeline deals={accountDeals} />
-        </aside>
-      </div>
+      )}
     </section>
   );
 }
@@ -795,22 +940,25 @@ function DealStatsView({
   onOwner: (id: number) => void;
 }) {
   const { status, setStatus, counts, filtered } = useDealFilter(deals);
+  const [mode, setMode] = useState<SurfaceMode>("list");
   return (
-    <section className="workspace-panel dense-panel">
-      <PanelHeader
+    <section className="crm-screen">
+      <RecordChrome
         title={title}
         subtitle="Deal volume, value, and close history for the selected period."
-        actions={
-          <StatusChips value={status} onChange={setStatus} counts={counts} />
-        }
+        mode={mode}
+        onMode={setMode}
+        status={status}
+        onStatus={setStatus}
+        counts={counts}
       />
-      <StatStrip
+      <MetricsBar
         items={[
           {
             label: "Average deal value",
             value: money(data.summary.averageValue, 2),
           },
-          { label: "Won deals", value: String(data.summary.deals) },
+          { label: "Closed won", value: String(data.summary.deals) },
           {
             label: "Win rate",
             value: `${data.summary.winRate.toFixed(0)}%`,
@@ -821,19 +969,22 @@ function DealStatsView({
           },
         ]}
       />
-      <div className="dense-split">
-        <DealTable
-          deals={filtered}
-          onCustomer={onCustomer}
-          onOwner={onOwner}
-        />
-        <aside className="dense-side">
-          <h2>Revenue trend</h2>
-          <MiniTrend deals={deals} />
-          <h2>Activity</h2>
-          <ActivityTimeline deals={filtered} />
-        </aside>
-      </div>
+      {mode === "board" ? (
+        <PipelineBoard deals={filtered} onCustomer={onCustomer} />
+      ) : (
+        <div className="crm-split">
+          <div className="record-main">
+            <DealTable
+              deals={filtered}
+              onCustomer={onCustomer}
+              onOwner={onOwner}
+            />
+            <h2 className="section-label">Revenue trend</h2>
+            <MiniTrend deals={deals} />
+          </div>
+          <ActivityRail deals={filtered} />
+        </div>
+      )}
     </section>
   );
 }
@@ -853,43 +1004,52 @@ function PlatformRevenueView({
   const rows = deals.filter((d) =>
     platform ? d.platform === platform : true,
   );
+  const { status, setStatus, counts, filtered } = useDealFilter(rows);
+  const [mode, setMode] = useState<SurfaceMode>("list");
   return (
-    <section className="workspace-panel dense-panel">
-      <PanelHeader
+    <section className="crm-screen">
+      <RecordChrome
         title="Platform revenue"
-        subtitle="Won and lost deals by acquisition channel."
+        subtitle="Deals by acquisition channel."
+        mode={mode}
+        onMode={setMode}
+        status={status}
+        onStatus={setStatus}
+        counts={counts}
+        extra={
+          <div className="owner-filter">
+            {data.platforms.map((p) => (
+              <button
+                key={p.id}
+                className={platform === p.name ? "active" : ""}
+                onClick={() => setPlatform(p.name)}
+              >
+                <PlatformIcon name={p.name} />
+                {p.name}
+              </button>
+            ))}
+          </div>
+        }
       />
-      <div className="owner-filter">
-        {data.platforms.map((p) => (
-          <button
-            key={p.id}
-            className={platform === p.name ? "active" : ""}
-            onClick={() => setPlatform(p.name)}
-          >
-            <PlatformIcon name={p.name} />
-            {p.name}
-            <b>{money(p.revenue, 0)}</b>
-          </button>
-        ))}
-      </div>
-      <StatStrip
+      <MetricsBar
         items={data.platforms.map((p) => ({
           label: p.name,
           value: money(p.revenue, 0),
           hint: `${p.deals} deals · ${p.share.toFixed(1)}%`,
         }))}
       />
-      <div className="dense-split">
-        <DealTable
-          deals={rows}
-          onCustomer={onCustomer}
-          onOwner={onOwner}
-        />
-        <aside className="dense-side">
-          <h2>Activity</h2>
-          <ActivityTimeline deals={rows} />
-        </aside>
-      </div>
+      {mode === "board" ? (
+        <PipelineBoard deals={filtered} onCustomer={onCustomer} />
+      ) : (
+        <div className="crm-split">
+          <DealTable
+            deals={filtered}
+            onCustomer={onCustomer}
+            onOwner={onOwner}
+          />
+          <ActivityRail deals={filtered} />
+        </div>
+      )}
     </section>
   );
 }
@@ -906,11 +1066,15 @@ function ReportsIndexView({
   onCustomer: (name: string) => void;
 }) {
   return (
-    <section className="workspace-panel dense-panel">
-      <PanelHeader
-        title="Reports"
-        subtitle="Open a report view, or browse the latest deals feeding every report."
-      />
+    <section className="crm-screen">
+      <div className="crm-chrome">
+        <div className="crm-chrome-top">
+          <div>
+            <h1>Reports</h1>
+            <p>Open a saved report, or browse the deals feeding every view.</p>
+          </div>
+        </div>
+      </div>
       <div className="report-launch">
         {reports.map((report) => (
           <button key={report} onClick={() => onSelect(report)}>
@@ -919,8 +1083,11 @@ function ReportsIndexView({
           </button>
         ))}
       </div>
-      <h2 className="panel-section-title">Latest deals across reports</h2>
-      <DealTable deals={deals.slice(0, 25)} onCustomer={onCustomer} />
+      <h2 className="section-label">Latest deals across reports</h2>
+      <div className="crm-split">
+        <DealTable deals={deals.slice(0, 30)} onCustomer={onCustomer} />
+        <ActivityRail deals={deals} />
+      </div>
     </section>
   );
 }
@@ -939,20 +1106,32 @@ function FolderView({
   onCreate?: () => void;
 }) {
   return (
-    <section className="workspace-panel dense-panel">
-      <PanelHeader
-        title={title}
-        subtitle={
-          title === "Manage folders"
-            ? "Organize report views in your iQuee workspace."
-            : `${title} built from your current report views and live deals.`
-        }
-      />
+    <section className="crm-screen">
+      <div className="crm-chrome">
+        <div className="crm-chrome-top">
+          <div>
+            <h1>{title}</h1>
+            <p>
+              {title === "Manage folders"
+                ? "Organize report views in your iQuee workspace."
+                : `${title} built from your current report views and live deals.`}
+            </p>
+          </div>
+        </div>
+      </div>
       <div className="report-launch">
         {reports.map((report) => (
           <button key={report} onClick={() => onSelect(report)}>
             <strong>{report}</strong>
-            <span>{money(deals.filter((d) => d.status === "won").reduce((n, d) => n + d.amount, 0), 0)} period revenue</span>
+            <span>
+              {money(
+                deals
+                  .filter((d) => d.status === "won")
+                  .reduce((n, d) => n + d.amount, 0),
+                0,
+              )}{" "}
+              period revenue
+            </span>
           </button>
         ))}
       </div>
@@ -961,12 +1140,13 @@ function FolderView({
           Add folder
         </button>
       )}
-      <h2 className="panel-section-title">Recent deals</h2>
-      <DealTable deals={deals.slice(0, 20)} />
+      <h2 className="section-label">Recent deals</h2>
+      <DealTable deals={deals.slice(0, 25)} />
     </section>
   );
 }
 
+/** Close inbox + HubSpot metrics home */
 function HomeView({
   data,
   onOpen,
@@ -978,16 +1158,32 @@ function HomeView({
   onCustomer: (name: string) => void;
   onOwner: (id: number) => void;
 }) {
+  const { status, setStatus, counts, filtered } = useDealFilter(data.deals);
+  const [mode, setMode] = useState<SurfaceMode>("list");
   return (
-    <section className="workspace-panel dense-panel">
-      <PanelHeader
+    <section className="crm-screen">
+      <RecordChrome
         title="Home"
-        subtitle="Revenue snapshot, pipeline, and the latest deal activity from the sales database."
+        subtitle="Pipeline snapshot and the latest deal activity."
+        mode={mode}
+        onMode={setMode}
+        status={status}
+        onStatus={setStatus}
+        counts={counts}
+        extra={
+          <div className="owner-filter">
+            {["Sales analytics", "Team", "Sales list", "Goals"].map((item) => (
+              <button key={item} onClick={() => onOpen(item)}>
+                {item}
+              </button>
+            ))}
+          </div>
+        }
       />
-      <StatStrip
+      <MetricsBar
         items={[
           { label: "Revenue", value: money(data.summary.revenue, 0) },
-          { label: "Won deals", value: String(data.summary.deals) },
+          { label: "Closed won", value: String(data.summary.deals) },
           {
             label: "Win rate",
             value: `${data.summary.winRate.toFixed(0)}%`,
@@ -997,46 +1193,35 @@ function HomeView({
             label: "Avg deal",
             value: money(data.summary.averageValue, 0),
           },
-          {
-            label: "Top sales",
-            value: data.topSales?.name ?? "—",
-          },
+          { label: "Top sales", value: data.topSales?.name ?? "—" },
         ]}
       />
-      <div className="home-launch">
-        {["Sales analytics", "Team", "Workspace", "Sales list", "Goals"].map(
-          (item) => (
-            <button key={item} onClick={() => onOpen(item)}>
-              {item}
-            </button>
-          ),
-        )}
-      </div>
-      <div className="dense-split">
-        <div>
-          <h2 className="panel-section-title">Latest deals</h2>
-          <DealTable
-            deals={data.deals.slice(0, 18)}
-            onCustomer={onCustomer}
-            onOwner={onOwner}
-          />
-        </div>
-        <aside className="dense-side">
-          <h2>Pipeline</h2>
-          <PipelineColumns deals={data.deals} />
-          <h2>Activity</h2>
-          <ActivityTimeline deals={data.deals} />
-          <h2>Accounts</h2>
-          <div className="side-account-list">
-            {data.customers.slice(0, 8).map((c) => (
-              <button key={c.id} onClick={() => onCustomer(c.name)}>
-                <span>{c.name}</span>
-                <strong>{money(c.revenue, 0)}</strong>
-              </button>
-            ))}
+      {mode === "board" ? (
+        <PipelineBoard deals={filtered} onCustomer={onCustomer} />
+      ) : (
+        <div className="crm-split">
+          <div className="record-main">
+            <h2 className="section-label">Latest deals</h2>
+            <DealTable
+              deals={filtered.slice(0, 40)}
+              onCustomer={onCustomer}
+              onOwner={onOwner}
+            />
           </div>
-        </aside>
-      </div>
+          <div className="home-rail">
+            <ActivityRail deals={filtered} title="Activity" />
+            <div className="side-account-list">
+              <h2 className="section-label">Accounts</h2>
+              {data.customers.slice(0, 10).map((c) => (
+                <button key={c.id} onClick={() => onCustomer(c.name)}>
+                  <span>{c.name}</span>
+                  <strong>{money(c.revenue, 0)}</strong>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
@@ -1054,7 +1239,7 @@ export function RecentDealsPanel({
         <h2>Recent deals</h2>
         <p>Live rows from the sales database for this timeframe.</p>
       </div>
-      <DealTable deals={deals.slice(0, 12)} onCustomer={onCustomer} />
+      <DealTable deals={deals.slice(0, 14)} onCustomer={onCustomer} compact />
     </section>
   );
 }
@@ -1081,9 +1266,7 @@ export function WorkspaceViews({
     "New report",
     "Analytics",
   ];
-  const goOwner = (id: number) => {
-    onSelectEmployee(id);
-  };
+  const goOwner = (id: number) => onSelectEmployee(id);
 
   if (view === "Home")
     return (
