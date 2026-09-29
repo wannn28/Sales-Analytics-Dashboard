@@ -97,6 +97,10 @@ export function Dashboard({
       setToast("Copy the dashboard URL from your address bar");
     }
   };
+  const selectedMember = employee
+    ? data?.team.find((person) => person.id === employee)
+    : null;
+  const reportRows = data?.team ?? [];
   return (
     <div className="app-shell">
       <IconSidebar
@@ -242,17 +246,148 @@ export function Dashboard({
             </button>
           </>
         ) : modal === "Settings" ? (
-          <><p>Signed in as <strong>{user.email}</strong></p><p>{user.name}</p><button className="dark-button" onClick={async()=>{try{await onLogout();}catch(e){setToast(e instanceof Error?e.message:'Unable to sign out');}}}>Sign out</button></>
+          <>
+            <p>
+              Signed in as <strong>{user.email}</strong>
+            </p>
+            <p>{user.name}</p>
+            <button
+              className="dark-button"
+              onClick={async () => {
+                try {
+                  await onLogout();
+                } catch (e) {
+                  setToast(
+                    e instanceof Error ? e.message : "Unable to sign out",
+                  );
+                }
+              }}
+            >
+              Sign out
+            </button>
+          </>
         ) : modal === "Notifications" ? (
           <p>
             You’re all caught up. Your report is connected to the sales
             database.
           </p>
+        ) : modal === "Sales list" || modal === "Deals by user" ? (
+          <>
+            <p>Won deals by salesperson in the selected timeframe.</p>
+            {reportRows.map((person) => (
+              <button
+                className="detail-row detail-row-button"
+                key={person.id}
+                onClick={() => {
+                  setEmployee(person.id);
+                  setModal("");
+                }}
+              >
+                <span>{person.name}</span>
+                <strong>
+                  {person.deals} deals · {money(person.revenue, 0)}
+                </strong>
+              </button>
+            ))}
+            <button className="dark-button" onClick={exportReport}>
+              Export list
+            </button>
+          </>
+        ) : modal === "Goals" ? (
+          <>
+            <p>
+              Progress toward the 2023 revenue goal, calculated from the live
+              report data.
+            </p>
+            {reportRows.map((person) => (
+              <div className="goal-row" key={person.id}>
+                <span>
+                  {person.name}
+                  <small>{person.kpi.toFixed(2)} KPI</small>
+                </span>
+                <b>
+                  <i
+                    style={{
+                      width: `${Math.min(100, person.revenue / 2500)}%`,
+                    }}
+                  />
+                </b>
+                <strong>{money(person.revenue)}</strong>
+              </div>
+            ))}
+          </>
+        ) : modal === "Recent reports" ||
+          modal === "Starred reports" ||
+          modal === "Manage folders" ? (
+          <>
+            <p>
+              {modal === "Manage folders"
+                ? "Workspace folders"
+                : `${modal} built from your current report views.`}
+            </p>
+            {["New report", "Analytics", "Team performance"].map((report) => (
+              <button
+                className="detail-row detail-row-button"
+                key={report}
+                onClick={() => {
+                  setTitle(report);
+                  setActive(report);
+                  setModal("");
+                }}
+              >
+                <span>{report}</span>
+                <strong>{money(data?.summary.revenue ?? 0, 0)}</strong>
+              </button>
+            ))}
+            {modal === "Manage folders" && (
+              <button
+                className="dark-button"
+                onClick={() => {
+                  setModal("Create report");
+                }}
+              >
+                Add folder
+              </button>
+            )}
+          </>
+        ) : modal === "Deal duration" || modal === "Deal duration report" ? (
+          <>
+            <p>Average deal value and volume for the selected period.</p>
+            <div className="detail-row">
+              <span>Average deal value</span>
+              <strong>{money(data?.summary.averageValue ?? 0, 2)}</strong>
+            </div>
+            <div className="detail-row">
+              <span>Won deals</span>
+              <strong>{data?.summary.deals ?? 0}</strong>
+            </div>
+            <div className="detail-row">
+              <span>Win rate</span>
+              <strong>{(data?.summary.winRate ?? 0).toFixed(0)}%</strong>
+            </div>
+          </>
+        ) : modal === "Emails received" ? (
+          <>
+            <p>Activity summary from the current reporting window.</p>
+            <div className="detail-row">
+              <span>Sales team updates</span>
+              <strong>{reportRows.length}</strong>
+            </div>
+            <div className="detail-row">
+              <span>Reports refreshed</span>
+              <strong>Today</strong>
+            </div>
+            <div className="detail-row">
+              <span>Current owner</span>
+              <strong>{user.name}</strong>
+            </div>
+          </>
         ) : (
           <>
             <p>
-              This demo includes the Sales Analytics report. Other workspace
-              sections don’t have data yet.
+              {selectedMember
+                ? `${selectedMember.name}'s performance is selected in the report.`
+                : "This workspace section is connected to the current report data."}
             </p>
             <button className="dark-button" onClick={() => setModal("")}>
               Back to report

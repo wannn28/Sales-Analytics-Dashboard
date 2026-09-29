@@ -165,19 +165,19 @@ export function RevenueHeader({
           <div className="stat-card narrow">
             <label>Deals</label>
             <strong className="gray-pill">{s.deals}</strong>
-            <span>+ 5</span>
+            <span>won</span>
           </div>
           <div className="stat-card narrow value">
             <label>Value</label>
             <strong className="pink-pill">
               ${Math.round(s.averageValue / 1000)}k
             </strong>
-            <span>↑ {s.growth.toFixed(0)}%</span>
+            <span>avg deal</span>
           </div>
           <div className="stat-card narrow">
             <label>Win rate</label>
             <strong className="gray-pill">{s.winRate.toFixed(0)}%</strong>
-            <span>↑ 12%</span>
+            <span>tracked</span>
           </div>
         </div>
       </div>

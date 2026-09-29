@@ -279,6 +279,27 @@ svg {
   font-weight: 600;
   padding: 7px 0;
 }
+.nav-section-toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
+  padding: 0;
+  text-align: left;
+}
+.nav-section-toggle svg {
+  color: #898686;
+}
+.collapse-button {
+  display: flex !important;
+  align-items: center !important;
+  gap: 2px !important;
+  padding: 1px !important;
+  background: transparent !important;
+}
+.card-toolbar > span > .collapse-button {
+  background: transparent;
+}
 .nav-heading button {
   display: grid;
   place-items: center;
@@ -1163,6 +1184,45 @@ dialog input {
   justify-content: space-between;
   padding: 13px 0;
   border-bottom: 1px solid #eee;
+}
+.detail-row-button {
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+}
+.detail-row-button:hover {
+  background: #faf3f5;
+  border-radius: 8px;
+}
+.goal-row {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 11px 0;
+  border-bottom: 1px solid #eee;
+  font-size: 11px;
+}
+.goal-row span {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.goal-row small {
+  font-size: 9px;
+  color: #aaa;
+}
+.goal-row > b {
+  height: 8px;
+  border-radius: 10px;
+  background: #eee;
+  overflow: hidden;
+}
+.goal-row i {
+  display: block;
+  height: 100%;
+  border-radius: 10px;
+  background: #cf2b5f;
 }
 .mobile-close,
 .nav-scrim {

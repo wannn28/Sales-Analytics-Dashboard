@@ -1,5 +1,7 @@
 import { lazy, Suspense, useEffect, useState } from "react";
-const Dashboard = lazy(() => import('./pages/Dashboard').then(m => ({default:m.Dashboard})));
+const Dashboard = lazy(() =>
+  import("./pages/Dashboard").then((m) => ({ default: m.Dashboard })),
+);
 import { Login } from "./pages/Login";
 export interface User {
   id: number;
@@ -46,7 +48,11 @@ export function App() {
       </div>
     );
   return user ? (
-    <Suspense fallback={<div className="auth-loading">Opening your report…</div>}><Dashboard user={user} onLogout={logout} /></Suspense>
+    <Suspense
+      fallback={<div className="auth-loading">Opening your report…</div>}
+    >
+      <Dashboard user={user} onLogout={logout} />
+    </Suspense>
   ) : (
     <Login onLogin={setUser} />
   );
