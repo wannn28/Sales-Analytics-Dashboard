@@ -1,0 +1,25 @@
+[Unit]
+Description=Sales Analytics Go API
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=sales-dashboard
+Group=sales-dashboard
+WorkingDirectory=/opt/sales-dashboard/current
+EnvironmentFile=/etc/sales-dashboard.env
+ExecStart=/opt/sales-dashboard/current/sales-api
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

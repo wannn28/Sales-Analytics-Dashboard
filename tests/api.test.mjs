@@ -1,0 +1,28 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+const base = process.env.TEST_API_URL || 'http://127.0.0.1:18080';
+const email = process.env.TEST_EMAIL;
+const password = process.env.TEST_PASSWORD;
+test('health, auth, filters, aggregate consistency, and session revocation', async () => {
+  assert.ok(email && password, 'Set TEST_EMAIL and TEST_PASSWORD');
+  assert.equal((await fetch(`${base}/api/health`)).status, 200);
+  assert.equal((await fetch(`${base}/api/v1/dashboard/summary`)).status, 401);
+  const login = (origin, pass=password) => fetch(`${base}/api/auth/login`, { method:'POST', headers:{Origin:origin,'Content-Type':'application/json'},body:JSON.stringify({email,password:pass}) });
+  assert.equal((await login('https://untrusted.example')).status,403);
+  assert.equal((await login(base,'incorrect-password')).status,401);
+  const response=await login(base);assert.equal(response.status,200);
+  const setCookie=response.headers.get('set-cookie');assert.match(setCookie,/HttpOnly/i);assert.match(setCookie,/SameSite=Strict/i);
+  const cookie=setCookie.split(';')[0];const get=async(path)=>{const r=await fetch(`${base}/api/v1/dashboard/${path}`,{headers:{Cookie:cookie}});assert.equal(r.status,200,path);return r.json();};
+  const [summary,team,platforms,revenue,dynamics,top]=await Promise.all(['summary','team-performance','platforms','revenue','sales-dynamics','top-sales'].map(get));
+  assert.equal(summary.revenue,528976.82);assert.equal(summary.previousRevenue,501641.73);
+  assert.ok(Math.abs(team.reduce((n,p)=>n+p.revenue,0)-summary.revenue)<.01);
+  assert.ok(Math.abs(platforms.reduce((n,p)=>n+p.revenue,0)-summary.revenue)<.01);
+  assert.ok(Math.abs(revenue.reduce((n,p)=>n+p.revenue,0)-summary.revenue)<.01);
+  assert.ok(dynamics.length>30);assert.ok(top.deals>0);
+  const member=await get('summary?employee=2');assert.equal(member.revenue,156841);
+  const month=await get('summary?period=month');assert.ok(month.revenue<summary.revenue);
+  const platform=await get('revenue?platform=1');assert.ok(Math.abs(platform.reduce((n,p)=>n+p.revenue,0)-platforms[0].revenue)<.01);
+  assert.equal((await fetch(`${base}/api/v1/dashboard/summary?employee=1%20OR%201=1`,{headers:{Cookie:cookie}})).status,400);
+  const logout=await fetch(`${base}/api/auth/logout`,{method:'POST',headers:{Origin:base,Cookie:cookie}});assert.equal(logout.status,200);
+  assert.equal((await fetch(`${base}/api/v1/dashboard/summary`,{headers:{Cookie:cookie}})).status,401);
+});
