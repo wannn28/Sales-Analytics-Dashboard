@@ -118,7 +118,6 @@ export function Dashboard({
 
   const showAnalytics =
     active === "Sales analytics" ||
-    active === "All accounts" ||
     active === "New report" ||
     active === "Analytics" ||
     customReports.includes(active);
@@ -149,6 +148,8 @@ export function Dashboard({
         active={active}
         onSelect={selectNav}
         customers={navCustomers}
+        team={viewData?.team ?? members}
+        platforms={viewData?.platforms ?? []}
         customReports={customReports}
       />
       {navOpen && (
@@ -276,7 +277,7 @@ export function Dashboard({
             </p>
             <button className="dark-button">Create report</button>
           </form>
-        ) : modal === "Create dashboard" ? (
+        ) : modal === "Create account" ? (
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -296,9 +297,7 @@ export function Dashboard({
               setActive(name);
               setModal("");
               setToast(
-                exists
-                  ? "Opened existing account dashboard"
-                  : "Dashboard created",
+                exists ? "Opened existing account" : "Account created",
               );
             }}
           >
@@ -312,10 +311,10 @@ export function Dashboard({
               />
             </label>
             <p>
-              Create an account dashboard under Dashboard → Accounts. Deals for
-              this account come from the sales database when available.
+              Create an account under Dashboard → Accounts. Deals for this
+              account come from the sales database when available.
             </p>
-            <button className="dark-button">Create dashboard</button>
+            <button className="dark-button">Create account</button>
           </form>
         ) : modal === "Revenue details" ? (
           <>

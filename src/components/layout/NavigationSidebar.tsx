@@ -8,7 +8,7 @@ import {
   Link,
   X,
 } from "lucide-react";
-import type { Customer } from "../../types/dashboard";
+import type { Customer, Employee, Platform } from "../../types/dashboard";
 
 function SectionHeading({
   label,
@@ -58,6 +58,8 @@ export function NavigationSidebar({
   active,
   onSelect,
   customers,
+  team,
+  platforms,
   customReports = [],
 }: {
   open: boolean;
@@ -65,11 +67,15 @@ export function NavigationSidebar({
   active: string;
   onSelect: (name: string) => void;
   customers: Customer[];
+  team: Employee[];
+  platforms: Platform[];
   customReports?: string[];
 }) {
   const [dashboardOpen, setDashboardOpen] = useState(true);
   const [accountsOpen, setAccountsOpen] = useState(true);
   const [reportsOpen, setReportsOpen] = useState(true);
+  const [teamOpen, setTeamOpen] = useState(true);
+  const [workspaceOpen, setWorkspaceOpen] = useState(true);
   const [sharedReportsOpen, setSharedReportsOpen] = useState(true);
   const [myReportsOpen, setMyReportsOpen] = useState(true);
 
@@ -118,16 +124,15 @@ export function NavigationSidebar({
         label="Dashboard"
         open={dashboardOpen}
         onToggle={() => setDashboardOpen(!dashboardOpen)}
-        onAdd={() => onSelect("Create dashboard")}
-        addLabel="Create dashboard"
       />
       {dashboardOpen && (
         <div className="nav-tree">
-          {item("All accounts")}
           <SectionHeading
             label="Accounts"
             open={accountsOpen}
             onToggle={() => setAccountsOpen(!accountsOpen)}
+            onAdd={() => onSelect("Create account")}
+            addLabel="Create account"
           />
           {accountsOpen && (
             <div className="nav-tree">
@@ -143,42 +148,75 @@ export function NavigationSidebar({
               )}
             </div>
           )}
-        </div>
-      )}
 
-      <SectionHeading
-        label="Reports"
-        open={reportsOpen}
-        onToggle={() => setReportsOpen(!reportsOpen)}
-        onAdd={() => onSelect("Create report")}
-        addLabel="Create report"
-      />
-      {reportsOpen && (
-        <div className="nav-tree">
           <SectionHeading
-            label="Team reports"
-            open={sharedReportsOpen}
-            onToggle={() => setSharedReportsOpen(!sharedReportsOpen)}
+            label="Reports"
+            open={reportsOpen}
+            onToggle={() => setReportsOpen(!reportsOpen)}
+            onAdd={() => onSelect("Create report")}
+            addLabel="Create report"
           />
-          {sharedReportsOpen && (
+          {reportsOpen && (
             <div className="nav-tree">
-              {item("Deals by user")}
-              {item("Deal duration")}
+              <SectionHeading
+                label="Team reports"
+                open={sharedReportsOpen}
+                onToggle={() => setSharedReportsOpen(!sharedReportsOpen)}
+              />
+              {sharedReportsOpen && (
+                <div className="nav-tree">
+                  {item("Deals by user")}
+                  {item("Deal duration")}
+                </div>
+              )}
+              <SectionHeading
+                label="My reports"
+                open={myReportsOpen}
+                onToggle={() => setMyReportsOpen(!myReportsOpen)}
+              />
+              {myReportsOpen && (
+                <>
+                  {item("Platform revenue")}
+                  {item("Deal duration report")}
+                  {item("New report")}
+                  {item(
+                    "Analytics",
+                    String(Math.min(7, customers.length || 7)),
+                  )}
+                  {customReports.map((name) => item(name))}
+                </>
+              )}
             </div>
           )}
+
           <SectionHeading
-            label="My reports"
-            open={myReportsOpen}
-            onToggle={() => setMyReportsOpen(!myReportsOpen)}
+            label="Team"
+            open={teamOpen}
+            onToggle={() => setTeamOpen(!teamOpen)}
           />
-          {myReportsOpen && (
-            <>
-              {item("Platform revenue")}
-              {item("Deal duration report")}
-              {item("New report")}
-              {item("Analytics", String(Math.min(7, customers.length || 7)))}
-              {customReports.map((name) => item(name))}
-            </>
+          {teamOpen && (
+            <div className="nav-tree">
+              {team.length ? (
+                team.map((person) => item(person.name))
+              ) : (
+                <p className="nav-empty">No team members yet</p>
+              )}
+            </div>
+          )}
+
+          <SectionHeading
+            label="Workspace"
+            open={workspaceOpen}
+            onToggle={() => setWorkspaceOpen(!workspaceOpen)}
+          />
+          {workspaceOpen && (
+            <div className="nav-tree">
+              {platforms.length ? (
+                platforms.map((platform) => item(platform.name))
+              ) : (
+                <p className="nav-empty">No platforms yet</p>
+              )}
+            </div>
           )}
         </div>
       )}

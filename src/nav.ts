@@ -2,8 +2,6 @@
 export const ANALYTICS_VIEWS = new Set([
   "Home",
   "Sales analytics",
-  "Reports",
-  "All accounts",
   "New report",
   "Analytics",
 ]);
@@ -12,7 +10,7 @@ export const ANALYTICS_VIEWS = new Set([
 export const DIALOG_ONLY = new Set([
   "Settings",
   "Create report",
-  "Create dashboard",
+  "Create account",
   "Revenue details",
 ]);
 
@@ -23,8 +21,6 @@ export function isAnalyticsShell(view: string) {
 export function reportTitle(view: string) {
   if (view === "Analytics") return "Analytics";
   if (view === "Home") return "Home";
-  if (view === "Reports") return "Reports";
-  if (view === "All accounts") return "All accounts";
   if (view === "Sales analytics") return "Sales analytics";
   return "New report";
 }

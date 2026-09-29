@@ -36,9 +36,7 @@ export function IconSidebar({
     active === "Team" ||
     active === "Workspace"
       ? active
-      : active === "All accounts" ||
-          active === "New report" ||
-          active === "Analytics"
+      : active === "New report" || active === "Analytics"
         ? "Sales analytics"
         : "";
   return (

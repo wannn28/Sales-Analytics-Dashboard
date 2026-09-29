@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { LayoutGrid, List } from "lucide-react";
 import {
   Bar,
@@ -535,13 +535,18 @@ function TeamView({
   deals,
   onOwner,
   onCustomer,
+  focusId,
 }: {
   team: Employee[];
   deals: Deal[];
   onOwner: (id: number) => void;
   onCustomer: (name: string) => void;
+  focusId?: number;
 }) {
-  const [selected, setSelected] = useState(team[0]?.id ?? 0);
+  const [selected, setSelected] = useState(focusId ?? team[0]?.id ?? 0);
+  useEffect(() => {
+    if (focusId != null) setSelected(focusId);
+  }, [focusId]);
   const person = team.find((p) => p.id === selected) ?? team[0];
   const personDeals = deals.filter((d) => d.employeeId === person?.id);
   const { status, setStatus, counts, filtered } = useDealFilter(personDeals);
@@ -994,13 +999,20 @@ function PlatformRevenueView({
   deals,
   onCustomer,
   onOwner,
+  focusPlatform,
 }: {
   data: DashboardData;
   deals: Deal[];
   onCustomer: (name: string) => void;
   onOwner: (id: number) => void;
+  focusPlatform?: string;
 }) {
-  const [platform, setPlatform] = useState(data.platforms[0]?.name ?? "");
+  const [platform, setPlatform] = useState(
+    focusPlatform ?? data.platforms[0]?.name ?? "",
+  );
+  useEffect(() => {
+    if (focusPlatform) setPlatform(focusPlatform);
+  }, [focusPlatform]);
   const rows = deals.filter((d) =>
     platform ? d.platform === platform : true,
   );
@@ -1258,6 +1270,8 @@ export function WorkspaceViews({
   onCreate: () => void;
 }) {
   const customer = data.customers.find((c) => c.name === view);
+  const member = data.team.find((p) => p.name === view);
+  const platformMatch = data.platforms.find((p) => p.name === view);
   const reportList = [
     "Deals by user",
     "Deal duration",
@@ -1277,13 +1291,14 @@ export function WorkspaceViews({
         onOwner={goOwner}
       />
     );
-  if (view === "Team")
+  if (view === "Team" || member)
     return (
       <TeamView
         team={data.team}
         deals={data.deals}
         onOwner={goOwner}
         onCustomer={onNavigate}
+        focusId={member?.id}
       />
     );
   if (view === "Workspace")
@@ -1320,13 +1335,14 @@ export function WorkspaceViews({
         onOwner={goOwner}
       />
     );
-  if (view === "Platform revenue")
+  if (view === "Platform revenue" || platformMatch)
     return (
       <PlatformRevenueView
         data={data}
         deals={data.deals}
         onCustomer={onNavigate}
         onOwner={goOwner}
+        focusPlatform={platformMatch?.name}
       />
     );
   if (view === "Reports")
