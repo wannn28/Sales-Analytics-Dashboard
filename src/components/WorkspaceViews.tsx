@@ -1,10 +1,21 @@
+import { useMemo, useState, type ReactNode } from "react";
+import {
+  Bar,
+  BarChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+} from "recharts";
 import { Avatar, money, PlatformIcon } from "./ui";
 import type {
   Customer,
   DashboardData,
+  Deal,
   Employee,
   Notification,
 } from "../types/dashboard";
+
+type StatusFilter = "all" | "won" | "lost";
 
 function EmptyState({ title, body }: { title: string; body: string }) {
   return (
@@ -18,60 +29,380 @@ function EmptyState({ title, body }: { title: string; body: string }) {
 function PanelHeader({
   title,
   subtitle,
+  actions,
 }: {
   title: string;
   subtitle: string;
+  actions?: ReactNode;
 }) {
   return (
-    <div className="panel-header">
-      <h1>{title}</h1>
-      <p>{subtitle}</p>
+    <div className="panel-header dense-header">
+      <div>
+        <h1>{title}</h1>
+        <p>{subtitle}</p>
+      </div>
+      {actions}
     </div>
   );
 }
 
-function SalesListView({
-  team,
-  onSelect,
+function StatusChips({
+  value,
+  onChange,
+  counts,
 }: {
-  team: Employee[];
-  onSelect: (id: number) => void;
+  value: StatusFilter;
+  onChange: (v: StatusFilter) => void;
+  counts: { all: number; won: number; lost: number };
 }) {
-  if (!team.length)
+  return (
+    <div className="filter-bar" role="tablist" aria-label="Deal status">
+      {(
+        [
+          ["all", "All", counts.all],
+          ["won", "Won", counts.won],
+          ["lost", "Lost", counts.lost],
+        ] as const
+      ).map(([key, label, count]) => (
+        <button
+          key={key}
+          role="tab"
+          aria-selected={value === key}
+          className={value === key ? "active" : ""}
+          onClick={() => onChange(key)}
+        >
+          {label}
+          <b>{count}</b>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function StatStrip({
+  items,
+}: {
+  items: { label: string; value: string; hint?: string }[];
+}) {
+  return (
+    <div className="stat-strip">
+      {items.map((item) => (
+        <div key={item.label}>
+          <label>{item.label}</label>
+          <strong>{item.value}</strong>
+          {item.hint && <span>{item.hint}</span>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function DealTable({
+  deals,
+  onCustomer,
+  onOwner,
+  showCustomer = true,
+}: {
+  deals: Deal[];
+  onCustomer?: (name: string) => void;
+  onOwner?: (id: number) => void;
+  showCustomer?: boolean;
+}) {
+  if (!deals.length)
     return (
       <EmptyState
-        title="No sales yet"
-        body="Won deals for this period will show up here."
+        title="No deals in this filter"
+        body="Try another status or timeframe. Rows come from the sales database."
       />
     );
   return (
-    <section className="workspace-panel">
+    <div className="deal-table-wrap">
+      <table className="deal-table">
+        <thead>
+          <tr>
+            {showCustomer && <th>Account</th>}
+            <th>Owner</th>
+            <th>Platform</th>
+            <th>Amount</th>
+            <th>Status</th>
+            <th>Close date</th>
+          </tr>
+        </thead>
+        <tbody>
+          {deals.map((deal) => (
+            <tr key={deal.id}>
+              {showCustomer && (
+                <td>
+                  {onCustomer ? (
+                    <button
+                      className="linkish"
+                      onClick={() => onCustomer(deal.customer)}
+                    >
+                      {deal.customer}
+                    </button>
+                  ) : (
+                    deal.customer
+                  )}
+                </td>
+              )}
+              <td>
+                <button
+                  className="owner-cell"
+                  onClick={() => onOwner?.(deal.employeeId)}
+                  disabled={!onOwner}
+                >
+                  <Avatar
+                    person={{
+                      name: deal.employee,
+                      initials: deal.employeeInitials,
+                      color: deal.employeeColor,
+                    }}
+                    small
+                  />
+                  {deal.employee}
+                </button>
+              </td>
+              <td>
+                <span className="platform-cell">
+                  <PlatformIcon name={deal.platform} />
+                  {deal.platform}
+                </span>
+              </td>
+              <td className="num">{money(deal.amount, 0)}</td>
+              <td>
+                <span className={`status-pill ${deal.status}`}>
+                  {deal.status}
+                </span>
+              </td>
+              <td className="muted">{deal.closedAt}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function ActivityTimeline({ deals }: { deals: Deal[] }) {
+  if (!deals.length)
+    return (
+      <EmptyState
+        title="No activity yet"
+        body="Closed deals for this view will appear in the timeline."
+      />
+    );
+  return (
+    <ol className="activity-timeline">
+      {deals.slice(0, 12).map((deal) => (
+        <li key={deal.id}>
+          <i className={deal.status} />
+          <div>
+            <strong>
+              {deal.status === "won" ? "Deal won" : "Deal lost"} ·{" "}
+              {deal.customer}
+            </strong>
+            <span>
+              {deal.employee} · {deal.platform} · {deal.closedAt}
+            </span>
+          </div>
+          <b>{money(deal.amount, 0)}</b>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+function MiniTrend({ deals }: { deals: Deal[] }) {
+  const points = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const deal of deals) {
+      if (deal.status !== "won") continue;
+      const key = deal.closedAt.slice(0, 7);
+      map.set(key, (map.get(key) ?? 0) + deal.amount);
+    }
+    return [...map.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([label, revenue]) => ({ label, revenue }));
+  }, [deals]);
+  if (!points.length)
+    return (
+      <div className="mini-trend empty">
+        <p>No won revenue in this window.</p>
+      </div>
+    );
+  return (
+    <div className="mini-trend">
+      <ResponsiveContainer width="100%" height={120}>
+        <BarChart data={points} margin={{ top: 8, right: 4, left: 0, bottom: 0 }}>
+          <XAxis dataKey="label" tick={{ fontSize: 10, fill: "#8a8582" }} />
+          <Tooltip formatter={(v) => money(Number(v), 0)} />
+          <Bar dataKey="revenue" fill="#cf2b5f" radius={[6, 6, 2, 2]} />
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+function PipelineColumns({ deals }: { deals: Deal[] }) {
+  const won = deals.filter((d) => d.status === "won");
+  const lost = deals.filter((d) => d.status === "lost");
+  const columns = [
+    { key: "won", label: "Won", rows: won },
+    { key: "lost", label: "Lost", rows: lost },
+  ];
+  return (
+    <div className="pipeline-board">
+      {columns.map((col) => (
+        <div key={col.key} className="pipeline-col">
+          <header>
+            <span>{col.label}</span>
+            <b>{col.rows.length}</b>
+            <em>{money(col.rows.reduce((n, d) => n + d.amount, 0), 0)}</em>
+          </header>
+          <ul>
+            {col.rows.slice(0, 8).map((deal) => (
+              <li key={deal.id}>
+                <strong>{deal.customer}</strong>
+                <span>
+                  {deal.employee} · {deal.platform}
+                </span>
+                <b>{money(deal.amount, 0)}</b>
+              </li>
+            ))}
+            {!col.rows.length && <li className="empty-col">No deals</li>}
+          </ul>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function useDealFilter(deals: Deal[]) {
+  const [status, setStatus] = useState<StatusFilter>("all");
+  const counts = useMemo(
+    () => ({
+      all: deals.length,
+      won: deals.filter((d) => d.status === "won").length,
+      lost: deals.filter((d) => d.status === "lost").length,
+    }),
+    [deals],
+  );
+  const filtered = useMemo(
+    () =>
+      status === "all" ? deals : deals.filter((d) => d.status === status),
+    [deals, status],
+  );
+  return { status, setStatus, counts, filtered };
+}
+
+function SalesListView({
+  deals,
+  team,
+  onOwner,
+  onCustomer,
+}: {
+  deals: Deal[];
+  team: Employee[];
+  onOwner: (id: number) => void;
+  onCustomer: (name: string) => void;
+}) {
+  const { status, setStatus, counts, filtered } = useDealFilter(deals);
+  const [owner, setOwner] = useState<number | null>(null);
+  const rows = owner
+    ? filtered.filter((d) => d.employeeId === owner)
+    : filtered;
+  if (!deals.length)
+    return (
+      <EmptyState
+        title="No sales yet"
+        body="Won and lost deals for this period will show up here."
+      />
+    );
+  return (
+    <section className="workspace-panel dense-panel">
       <PanelHeader
         title="Sales list"
-        subtitle="Won deals by salesperson in the selected timeframe."
+        subtitle="Every closed deal in the selected timeframe, with owner, platform, and amount."
+        actions={
+          <StatusChips value={status} onChange={setStatus} counts={counts} />
+        }
       />
-      <div className="panel-list">
+      <StatStrip
+        items={[
+          {
+            label: "Deals shown",
+            value: String(rows.length),
+          },
+          {
+            label: "Won value",
+            value: money(
+              rows
+                .filter((d) => d.status === "won")
+                .reduce((n, d) => n + d.amount, 0),
+              0,
+            ),
+          },
+          {
+            label: "Owners",
+            value: String(team.length),
+          },
+          {
+            label: "Avg deal",
+            value: money(
+              rows.length
+                ? rows.reduce((n, d) => n + d.amount, 0) / rows.length
+                : 0,
+              0,
+            ),
+          },
+        ]}
+      />
+      <div className="owner-filter">
+        <button
+          className={!owner ? "active" : ""}
+          onClick={() => setOwner(null)}
+        >
+          All owners
+        </button>
         {team.map((person) => (
           <button
-            className="panel-row"
             key={person.id}
-            onClick={() => onSelect(person.id)}
+            className={owner === person.id ? "active" : ""}
+            onClick={() =>
+              setOwner(owner === person.id ? null : person.id)
+            }
           >
-            <span className="panel-row-main">
-              <Avatar person={person} small />
-              {person.name}
-            </span>
-            <strong>
-              {person.deals} deals · {money(person.revenue, 0)}
-            </strong>
+            <Avatar person={person} small />
+            {person.name}
           </button>
         ))}
+      </div>
+      <div className="dense-split">
+        <DealTable
+          deals={rows}
+          onCustomer={onCustomer}
+          onOwner={onOwner}
+        />
+        <aside className="dense-side">
+          <h2>Pipeline</h2>
+          <PipelineColumns deals={rows} />
+          <h2>Recent activity</h2>
+          <ActivityTimeline deals={rows} />
+        </aside>
       </div>
     </section>
   );
 }
 
-function GoalsView({ team }: { team: Employee[] }) {
+function GoalsView({
+  team,
+  deals,
+  onOwner,
+}: {
+  team: Employee[];
+  deals: Deal[];
+  onOwner: (id: number) => void;
+}) {
   if (!team.length)
     return (
       <EmptyState
@@ -79,25 +410,48 @@ function GoalsView({ team }: { team: Employee[] }) {
         body="Team revenue for this period will appear here once deals close."
       />
     );
+  const target = Math.max(...team.map((p) => p.revenue), 1) * 1.15;
   return (
-    <section className="workspace-panel">
+    <section className="workspace-panel dense-panel">
       <PanelHeader
         title="Goals"
-        subtitle="Progress toward the 2023 revenue goal, calculated from live report data."
+        subtitle="Progress toward period revenue targets, with contributing deals from the sales database."
       />
-      <div className="panel-list">
-        {team.map((person) => (
-          <div className="goal-row panel-goal" key={person.id}>
-            <span>
-              {person.name}
-              <small>{person.kpi.toFixed(2)} KPI</small>
-            </span>
-            <b>
-              <i style={{ width: `${Math.min(100, person.revenue / 2500)}%` }} />
-            </b>
-            <strong>{money(person.revenue)}</strong>
-          </div>
-        ))}
+      <div className="goals-grid">
+        {team.map((person) => {
+          const personDeals = deals.filter(
+            (d) => d.employeeId === person.id && d.status === "won",
+          );
+          const pct = Math.min(100, (person.revenue / target) * 100);
+          return (
+            <article key={person.id} className="goal-card">
+              <header>
+                <button className="owner-cell" onClick={() => onOwner(person.id)}>
+                  <Avatar person={person} />
+                  <span>
+                    <strong>{person.name}</strong>
+                    <small>
+                      {person.deals} won · {person.winRate.toFixed(0)}% win rate
+                    </small>
+                  </span>
+                </button>
+                <b>{money(person.revenue, 0)}</b>
+              </header>
+              <div className="goal-meter">
+                <i style={{ width: `${pct}%` }} />
+              </div>
+              <span className="goal-meta">
+                {pct.toFixed(0)}% of {money(target, 0)} stretch target · KPI{" "}
+                {person.kpi.toFixed(2)}
+              </span>
+              <DealTable
+                deals={personDeals.slice(0, 6)}
+                showCustomer
+                onOwner={onOwner}
+              />
+            </article>
+          );
+        })}
       </div>
     </section>
   );
@@ -105,11 +459,18 @@ function GoalsView({ team }: { team: Employee[] }) {
 
 function TeamView({
   team,
-  onSelect,
+  deals,
+  onOwner,
+  onCustomer,
 }: {
   team: Employee[];
-  onSelect: (id: number) => void;
+  deals: Deal[];
+  onOwner: (id: number) => void;
+  onCustomer: (name: string) => void;
 }) {
+  const [selected, setSelected] = useState(team[0]?.id ?? 0);
+  const person = team.find((p) => p.id === selected) ?? team[0];
+  const personDeals = deals.filter((d) => d.employeeId === person?.id);
   if (!team.length)
     return (
       <EmptyState
@@ -118,28 +479,72 @@ function TeamView({
       />
     );
   return (
-    <section className="workspace-panel">
+    <section className="workspace-panel dense-panel">
       <PanelHeader
         title="Team"
-        subtitle="Sales team performance from the current reporting window."
+        subtitle="Roster performance with live deal history for each salesperson."
       />
-      <div className="panel-cards">
-        {team.map((person) => (
-          <button
-            className="panel-person"
-            key={person.id}
-            onClick={() => onSelect(person.id)}
-          >
-            <Avatar person={person} />
-            <div>
-              <strong>{person.name}</strong>
-              <span>
-                {person.deals} deals · {person.winRate.toFixed(0)}% win rate
-              </span>
-            </div>
-            <b>{money(person.revenue, 0)}</b>
-          </button>
-        ))}
+      <div className="dense-split team-dense">
+        <div className="deal-table-wrap">
+          <table className="deal-table">
+            <thead>
+              <tr>
+                <th>Salesperson</th>
+                <th>Revenue</th>
+                <th>Won</th>
+                <th>Leads</th>
+                <th>KPI</th>
+                <th>Win rate</th>
+              </tr>
+            </thead>
+            <tbody>
+              {team.map((member) => (
+                <tr
+                  key={member.id}
+                  className={selected === member.id ? "selected-row" : ""}
+                  onClick={() => {
+                    setSelected(member.id);
+                    onOwner(member.id);
+                  }}
+                >
+                  <td>
+                    <span className="owner-cell static">
+                      <Avatar person={member} small />
+                      {member.name}
+                    </span>
+                  </td>
+                  <td className="num">{money(member.revenue, 0)}</td>
+                  <td className="num">{member.deals}</td>
+                  <td className="num">{member.leads}</td>
+                  <td className="num">{member.kpi.toFixed(2)}</td>
+                  <td className="num">{member.winRate.toFixed(0)}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <aside className="dense-side">
+          <h2>{person?.name} deals</h2>
+          <StatStrip
+            items={[
+              {
+                label: "Revenue",
+                value: money(person?.revenue ?? 0, 0),
+              },
+              {
+                label: "Open rows",
+                value: String(personDeals.length),
+              },
+            ]}
+          />
+          <DealTable
+            deals={personDeals}
+            onCustomer={onCustomer}
+            showCustomer
+          />
+          <h2>Activity</h2>
+          <ActivityTimeline deals={personDeals} />
+        </aside>
       </div>
     </section>
   );
@@ -148,61 +553,107 @@ function TeamView({
 function WorkspaceView({
   customers,
   platforms,
+  deals,
   onCustomer,
 }: {
   customers: Customer[];
   platforms: DashboardData["platforms"];
+  deals: Deal[];
   onCustomer: (name: string) => void;
 }) {
   return (
-    <section className="workspace-panel">
+    <section className="workspace-panel dense-panel">
       <PanelHeader
         title="Workspace"
-        subtitle="Accounts and acquisition channels connected to your sales database."
+        subtitle="Accounts, channels, and recent deal flow connected to your sales database."
       />
-      <h2 className="panel-section-title">Accounts</h2>
-      {customers.length ? (
-        <div className="panel-list">
-          {customers.map((customer) => (
-            <button
-              className="panel-row"
-              key={customer.id}
-              onClick={() => onCustomer(customer.name)}
-            >
-              <span>{customer.name}</span>
-              <strong>
-                {customer.deals} deals · {money(customer.revenue, 0)}
-              </strong>
-            </button>
-          ))}
+      <StatStrip
+        items={[
+          { label: "Accounts", value: String(customers.length) },
+          {
+            label: "Account revenue",
+            value: money(
+              customers.reduce((n, c) => n + c.revenue, 0),
+              0,
+            ),
+          },
+          { label: "Platforms", value: String(platforms.length) },
+          { label: "Recent deals", value: String(deals.length) },
+        ]}
+      />
+      <div className="dense-split">
+        <div>
+          <h2 className="panel-section-title">Accounts</h2>
+          <div className="deal-table-wrap">
+            <table className="deal-table">
+              <thead>
+                <tr>
+                  <th>Account</th>
+                  <th>Revenue</th>
+                  <th>Won</th>
+                  <th>Lost</th>
+                  <th>Win rate</th>
+                </tr>
+              </thead>
+              <tbody>
+                {customers.map((customer) => {
+                  const total = customer.deals + customer.lost;
+                  const rate = total
+                    ? (customer.deals / total) * 100
+                    : 0;
+                  return (
+                    <tr
+                      key={customer.id}
+                      className="click-row"
+                      onClick={() => onCustomer(customer.name)}
+                    >
+                      <td>{customer.name}</td>
+                      <td className="num">{money(customer.revenue, 0)}</td>
+                      <td className="num">{customer.deals}</td>
+                      <td className="num">{customer.lost}</td>
+                      <td className="num">{rate.toFixed(0)}%</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <h2 className="panel-section-title">Platforms</h2>
+          <div className="deal-table-wrap">
+            <table className="deal-table">
+              <thead>
+                <tr>
+                  <th>Platform</th>
+                  <th>Revenue</th>
+                  <th>Deals</th>
+                  <th>Share</th>
+                </tr>
+              </thead>
+              <tbody>
+                {platforms.map((platform) => (
+                  <tr key={platform.id}>
+                    <td>
+                      <span className="platform-cell">
+                        <PlatformIcon name={platform.name} />
+                        {platform.name}
+                      </span>
+                    </td>
+                    <td className="num">{money(platform.revenue, 0)}</td>
+                    <td className="num">{platform.deals}</td>
+                    <td className="num">{platform.share.toFixed(1)}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-      ) : (
-        <EmptyState
-          title="No accounts yet"
-          body="Customer accounts from the database will show up here."
-        />
-      )}
-      <h2 className="panel-section-title">Platforms</h2>
-      {platforms.length ? (
-        <div className="panel-list">
-          {platforms.map((platform) => (
-            <div className="panel-row static" key={platform.id}>
-              <span className="panel-row-main">
-                <PlatformIcon name={platform.name} />
-                {platform.name}
-              </span>
-              <strong>
-                {platform.deals} deals · {money(platform.revenue, 0)}
-              </strong>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <EmptyState
-          title="No platforms yet"
-          body="Acquisition platforms will appear once deals are recorded."
-        />
-      )}
+        <aside className="dense-side">
+          <h2>Recent activity</h2>
+          <ActivityTimeline deals={deals} />
+          <h2>Pipeline</h2>
+          <PipelineColumns deals={deals.slice(0, 40)} />
+        </aside>
+      </div>
     </section>
   );
 }
@@ -210,7 +661,7 @@ function WorkspaceView({
 function NotificationsView({ items }: { items: Notification[] }) {
   if (!items.length)
     return (
-      <section className="workspace-panel">
+      <section className="workspace-panel dense-panel">
         <PanelHeader
           title="Notifications"
           subtitle="Deal activity from the current reporting window."
@@ -222,29 +673,56 @@ function NotificationsView({ items }: { items: Notification[] }) {
       </section>
     );
   return (
-    <section className="workspace-panel">
+    <section className="workspace-panel dense-panel">
       <PanelHeader
         title="Notifications"
         subtitle="Recent closed deals from the sales database."
       />
-      <div className="panel-list">
-        {items.map((item) => (
-          <div className="panel-row static notification-row" key={item.id}>
-            <span>
-              <strong>{item.title}</strong>
-              <small>
-                {item.body} · {item.closedAt}
-              </small>
-            </span>
-            <b>{money(item.amount, 0)}</b>
-          </div>
-        ))}
+      <div className="deal-table-wrap">
+        <table className="deal-table">
+          <thead>
+            <tr>
+              <th>Event</th>
+              <th>Owner</th>
+              <th>Account</th>
+              <th>Amount</th>
+              <th>Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((item) => (
+              <tr key={item.id}>
+                <td>{item.title}</td>
+                <td>{item.employee}</td>
+                <td>{item.customer}</td>
+                <td className="num">{money(item.amount, 0)}</td>
+                <td className="muted">{item.closedAt}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </section>
   );
 }
 
-function CustomerView({ customer }: { customer: Customer | undefined }) {
+function CustomerView({
+  customer,
+  deals,
+  onOwner,
+}: {
+  customer: Customer | undefined;
+  deals: Deal[];
+  onOwner: (id: number) => void;
+}) {
+  const accountDeals = useMemo(
+    () =>
+      customer
+        ? deals.filter((d) => d.customerId === customer.id)
+        : [],
+    [customer, deals],
+  );
+  const { status, setStatus, counts, filtered } = useDealFilter(accountDeals);
   if (!customer)
     return (
       <EmptyState
@@ -252,38 +730,52 @@ function CustomerView({ customer }: { customer: Customer | undefined }) {
         body="This account is not in the current sales database."
       />
     );
-  if (!customer.deals && !customer.lost)
-    return (
-      <section className="workspace-panel">
-        <PanelHeader
-          title={customer.name}
-          subtitle="Account dashboard from the sales database."
-        />
-        <EmptyState
-          title="No deals yet"
-          body={`No deals recorded for ${customer.name} in this period.`}
-        />
-      </section>
-    );
+  const won = accountDeals.filter((d) => d.status === "won");
+  const avg = won.length
+    ? won.reduce((n, d) => n + d.amount, 0) / won.length
+    : 0;
+  const total = customer.deals + customer.lost;
+  const winRate = total ? (customer.deals / total) * 100 : 0;
+  const topOwner = [...won].sort((a, b) => b.amount - a.amount)[0];
   return (
-    <section className="workspace-panel">
+    <section className="workspace-panel dense-panel">
       <PanelHeader
         title={customer.name}
-        subtitle="Account dashboard from the sales database."
+        subtitle="Account record with deals, trend, and activity from the sales database."
+        actions={
+          <StatusChips value={status} onChange={setStatus} counts={counts} />
+        }
       />
-      <div className="panel-stats">
+      <StatStrip
+        items={[
+          { label: "Revenue", value: money(customer.revenue, 2) },
+          { label: "Won deals", value: String(customer.deals) },
+          { label: "Lost deals", value: String(customer.lost) },
+          { label: "Win rate", value: `${winRate.toFixed(0)}%` },
+          { label: "Avg won deal", value: money(avg, 0) },
+          {
+            label: "Top owner",
+            value: topOwner?.employee ?? "—",
+          },
+        ]}
+      />
+      <div className="dense-split">
         <div>
-          <label>Revenue</label>
-          <strong>{money(customer.revenue, 2)}</strong>
+          <h2 className="panel-section-title">Deals</h2>
+          <DealTable
+            deals={filtered}
+            showCustomer={false}
+            onOwner={onOwner}
+          />
         </div>
-        <div>
-          <label>Won deals</label>
-          <strong>{customer.deals}</strong>
-        </div>
-        <div>
-          <label>Lost deals</label>
-          <strong>{customer.lost}</strong>
-        </div>
+        <aside className="dense-side">
+          <h2>Revenue trend</h2>
+          <MiniTrend deals={accountDeals} />
+          <h2>Pipeline</h2>
+          <PipelineColumns deals={accountDeals} />
+          <h2>Activity</h2>
+          <ActivityTimeline deals={accountDeals} />
+        </aside>
       </div>
     </section>
   );
@@ -292,66 +784,111 @@ function CustomerView({ customer }: { customer: Customer | undefined }) {
 function DealStatsView({
   title,
   data,
+  deals,
+  onCustomer,
+  onOwner,
 }: {
   title: string;
   data: DashboardData;
+  deals: Deal[];
+  onCustomer: (name: string) => void;
+  onOwner: (id: number) => void;
 }) {
+  const { status, setStatus, counts, filtered } = useDealFilter(deals);
   return (
-    <section className="workspace-panel">
+    <section className="workspace-panel dense-panel">
       <PanelHeader
         title={title}
-        subtitle="Average deal value and volume for the selected period."
+        subtitle="Deal volume, value, and close history for the selected period."
+        actions={
+          <StatusChips value={status} onChange={setStatus} counts={counts} />
+        }
       />
-      <div className="panel-list">
-        <div className="panel-row static">
-          <span>Average deal value</span>
-          <strong>{money(data.summary.averageValue, 2)}</strong>
-        </div>
-        <div className="panel-row static">
-          <span>Won deals</span>
-          <strong>{data.summary.deals}</strong>
-        </div>
-        <div className="panel-row static">
-          <span>Win rate</span>
-          <strong>{data.summary.winRate.toFixed(0)}%</strong>
-        </div>
-        <div className="panel-row static">
-          <span>Best deal</span>
-          <strong>
-            {money(data.summary.bestDeal, 0)} · {data.summary.bestCustomer}
-          </strong>
-        </div>
+      <StatStrip
+        items={[
+          {
+            label: "Average deal value",
+            value: money(data.summary.averageValue, 2),
+          },
+          { label: "Won deals", value: String(data.summary.deals) },
+          {
+            label: "Win rate",
+            value: `${data.summary.winRate.toFixed(0)}%`,
+          },
+          {
+            label: "Best deal",
+            value: `${money(data.summary.bestDeal, 0)} · ${data.summary.bestCustomer}`,
+          },
+        ]}
+      />
+      <div className="dense-split">
+        <DealTable
+          deals={filtered}
+          onCustomer={onCustomer}
+          onOwner={onOwner}
+        />
+        <aside className="dense-side">
+          <h2>Revenue trend</h2>
+          <MiniTrend deals={deals} />
+          <h2>Activity</h2>
+          <ActivityTimeline deals={filtered} />
+        </aside>
       </div>
     </section>
   );
 }
 
-function PlatformRevenueView({ data }: { data: DashboardData }) {
-  if (!data.platforms.length)
-    return (
-      <EmptyState
-        title="No platform revenue"
-        body="Platform totals will appear once deals are recorded."
-      />
-    );
+function PlatformRevenueView({
+  data,
+  deals,
+  onCustomer,
+  onOwner,
+}: {
+  data: DashboardData;
+  deals: Deal[];
+  onCustomer: (name: string) => void;
+  onOwner: (id: number) => void;
+}) {
+  const [platform, setPlatform] = useState(data.platforms[0]?.name ?? "");
+  const rows = deals.filter((d) =>
+    platform ? d.platform === platform : true,
+  );
   return (
-    <section className="workspace-panel">
+    <section className="workspace-panel dense-panel">
       <PanelHeader
         title="Platform revenue"
-        subtitle="Won revenue by acquisition channel for the selected period."
+        subtitle="Won and lost deals by acquisition channel."
       />
-      <div className="panel-list">
-        {data.platforms.map((platform) => (
-          <div className="panel-row static" key={platform.id}>
-            <span className="panel-row-main">
-              <PlatformIcon name={platform.name} />
-              {platform.name}
-            </span>
-            <strong>
-              {platform.share.toFixed(1)}% · {money(platform.revenue, 0)}
-            </strong>
-          </div>
+      <div className="owner-filter">
+        {data.platforms.map((p) => (
+          <button
+            key={p.id}
+            className={platform === p.name ? "active" : ""}
+            onClick={() => setPlatform(p.name)}
+          >
+            <PlatformIcon name={p.name} />
+            {p.name}
+            <b>{money(p.revenue, 0)}</b>
+          </button>
         ))}
+      </div>
+      <StatStrip
+        items={data.platforms.map((p) => ({
+          label: p.name,
+          value: money(p.revenue, 0),
+          hint: `${p.deals} deals · ${p.share.toFixed(1)}%`,
+        }))}
+      />
+      <div className="dense-split">
+        <DealTable
+          deals={rows}
+          onCustomer={onCustomer}
+          onOwner={onOwner}
+        />
+        <aside className="dense-side">
+          <h2>Activity</h2>
+          <ActivityTimeline deals={rows} />
+        </aside>
       </div>
     </section>
   );
@@ -359,29 +896,31 @@ function PlatformRevenueView({ data }: { data: DashboardData }) {
 
 function ReportsIndexView({
   reports,
+  deals,
   onSelect,
+  onCustomer,
 }: {
   reports: string[];
+  deals: Deal[];
   onSelect: (name: string) => void;
+  onCustomer: (name: string) => void;
 }) {
   return (
-    <section className="workspace-panel">
+    <section className="workspace-panel dense-panel">
       <PanelHeader
         title="Reports"
-        subtitle="Open a report view built from the current sales database."
+        subtitle="Open a report view, or browse the latest deals feeding every report."
       />
-      <div className="panel-list">
+      <div className="report-launch">
         {reports.map((report) => (
-          <button
-            className="panel-row"
-            key={report}
-            onClick={() => onSelect(report)}
-          >
-            <span>{report}</span>
-            <strong>Open</strong>
+          <button key={report} onClick={() => onSelect(report)}>
+            <strong>{report}</strong>
+            <span>Open report</span>
           </button>
         ))}
       </div>
+      <h2 className="panel-section-title">Latest deals across reports</h2>
+      <DealTable deals={deals.slice(0, 25)} onCustomer={onCustomer} />
     </section>
   );
 }
@@ -389,35 +928,31 @@ function ReportsIndexView({
 function FolderView({
   title,
   reports,
-  revenue,
+  deals,
   onSelect,
   onCreate,
 }: {
   title: string;
   reports: string[];
-  revenue: number;
+  deals: Deal[];
   onSelect: (name: string) => void;
   onCreate?: () => void;
 }) {
   return (
-    <section className="workspace-panel">
+    <section className="workspace-panel dense-panel">
       <PanelHeader
         title={title}
         subtitle={
           title === "Manage folders"
             ? "Organize report views in your iQuee workspace."
-            : `${title} built from your current report views.`
+            : `${title} built from your current report views and live deals.`
         }
       />
-      <div className="panel-list">
+      <div className="report-launch">
         {reports.map((report) => (
-          <button
-            className="panel-row"
-            key={report}
-            onClick={() => onSelect(report)}
-          >
-            <span>{report}</span>
-            <strong>{money(revenue, 0)}</strong>
+          <button key={report} onClick={() => onSelect(report)}>
+            <strong>{report}</strong>
+            <span>{money(deals.filter((d) => d.status === "won").reduce((n, d) => n + d.amount, 0), 0)} period revenue</span>
           </button>
         ))}
       </div>
@@ -426,6 +961,8 @@ function FolderView({
           Add folder
         </button>
       )}
+      <h2 className="panel-section-title">Recent deals</h2>
+      <DealTable deals={deals.slice(0, 20)} />
     </section>
   );
 }
@@ -433,49 +970,91 @@ function FolderView({
 function HomeView({
   data,
   onOpen,
+  onCustomer,
+  onOwner,
 }: {
   data: DashboardData;
   onOpen: (name: string) => void;
+  onCustomer: (name: string) => void;
+  onOwner: (id: number) => void;
 }) {
   return (
-    <section className="workspace-panel">
+    <section className="workspace-panel dense-panel">
       <PanelHeader
         title="Home"
-        subtitle="A snapshot of revenue, team, and accounts from the sales database."
+        subtitle="Revenue snapshot, pipeline, and the latest deal activity from the sales database."
       />
-      <div className="panel-stats">
-        <div>
-          <label>Revenue</label>
-          <strong>{money(data.summary.revenue, 0)}</strong>
-        </div>
-        <div>
-          <label>Won deals</label>
-          <strong>{data.summary.deals}</strong>
-        </div>
-        <div>
-          <label>Win rate</label>
-          <strong>{data.summary.winRate.toFixed(0)}%</strong>
-        </div>
-        <div>
-          <label>Top account</label>
-          <strong>{data.summary.bestCustomer}</strong>
-        </div>
-      </div>
-      <h2 className="panel-section-title">Quick open</h2>
-      <div className="panel-list">
+      <StatStrip
+        items={[
+          { label: "Revenue", value: money(data.summary.revenue, 0) },
+          { label: "Won deals", value: String(data.summary.deals) },
+          {
+            label: "Win rate",
+            value: `${data.summary.winRate.toFixed(0)}%`,
+          },
+          { label: "Top account", value: data.summary.bestCustomer },
+          {
+            label: "Avg deal",
+            value: money(data.summary.averageValue, 0),
+          },
+          {
+            label: "Top sales",
+            value: data.topSales?.name ?? "—",
+          },
+        ]}
+      />
+      <div className="home-launch">
         {["Sales analytics", "Team", "Workspace", "Sales list", "Goals"].map(
           (item) => (
-            <button
-              className="panel-row"
-              key={item}
-              onClick={() => onOpen(item)}
-            >
-              <span>{item}</span>
-              <strong>Open</strong>
+            <button key={item} onClick={() => onOpen(item)}>
+              {item}
             </button>
           ),
         )}
       </div>
+      <div className="dense-split">
+        <div>
+          <h2 className="panel-section-title">Latest deals</h2>
+          <DealTable
+            deals={data.deals.slice(0, 18)}
+            onCustomer={onCustomer}
+            onOwner={onOwner}
+          />
+        </div>
+        <aside className="dense-side">
+          <h2>Pipeline</h2>
+          <PipelineColumns deals={data.deals} />
+          <h2>Activity</h2>
+          <ActivityTimeline deals={data.deals} />
+          <h2>Accounts</h2>
+          <div className="side-account-list">
+            {data.customers.slice(0, 8).map((c) => (
+              <button key={c.id} onClick={() => onCustomer(c.name)}>
+                <span>{c.name}</span>
+                <strong>{money(c.revenue, 0)}</strong>
+              </button>
+            ))}
+          </div>
+        </aside>
+      </div>
+    </section>
+  );
+}
+
+export function RecentDealsPanel({
+  deals,
+  onCustomer,
+}: {
+  deals: Deal[];
+  onCustomer: (name: string) => void;
+}) {
+  return (
+    <section className="recent-deals-panel">
+      <div className="recent-deals-heading">
+        <h2>Recent deals</h2>
+        <p>Live rows from the sales database for this timeframe.</p>
+      </div>
+      <DealTable deals={deals.slice(0, 12)} onCustomer={onCustomer} />
     </section>
   );
 }
@@ -502,16 +1081,26 @@ export function WorkspaceViews({
     "New report",
     "Analytics",
   ];
+  const goOwner = (id: number) => {
+    onSelectEmployee(id);
+  };
 
-  if (view === "Home") return <HomeView data={data} onOpen={onNavigate} />;
+  if (view === "Home")
+    return (
+      <HomeView
+        data={data}
+        onOpen={onNavigate}
+        onCustomer={onNavigate}
+        onOwner={goOwner}
+      />
+    );
   if (view === "Team")
     return (
       <TeamView
         team={data.team}
-        onSelect={(id) => {
-          onSelectEmployee(id);
-          onNavigate("Sales analytics");
-        }}
+        deals={data.deals}
+        onOwner={goOwner}
+        onCustomer={onNavigate}
       />
     );
   if (view === "Workspace")
@@ -519,6 +1108,7 @@ export function WorkspaceViews({
       <WorkspaceView
         customers={data.customers}
         platforms={data.platforms}
+        deals={data.deals}
         onCustomer={onNavigate}
       />
     );
@@ -527,20 +1117,44 @@ export function WorkspaceViews({
   if (view === "Sales list" || view === "Deals by user")
     return (
       <SalesListView
+        deals={data.deals}
         team={data.team}
-        onSelect={(id) => {
-          onSelectEmployee(id);
-          onNavigate("Sales analytics");
-        }}
+        onOwner={goOwner}
+        onCustomer={onNavigate}
       />
     );
-  if (view === "Goals") return <GoalsView team={data.team} />;
+  if (view === "Goals")
+    return (
+      <GoalsView team={data.team} deals={data.deals} onOwner={goOwner} />
+    );
   if (view === "Deal duration" || view === "Deal duration report")
-    return <DealStatsView title={view} data={data} />;
+    return (
+      <DealStatsView
+        title={view}
+        data={data}
+        deals={data.deals}
+        onCustomer={onNavigate}
+        onOwner={goOwner}
+      />
+    );
   if (view === "Platform revenue")
-    return <PlatformRevenueView data={data} />;
+    return (
+      <PlatformRevenueView
+        data={data}
+        deals={data.deals}
+        onCustomer={onNavigate}
+        onOwner={goOwner}
+      />
+    );
   if (view === "Reports")
-    return <ReportsIndexView reports={reportList} onSelect={onNavigate} />;
+    return (
+      <ReportsIndexView
+        reports={reportList}
+        deals={data.deals}
+        onSelect={onNavigate}
+        onCustomer={onNavigate}
+      />
+    );
   if (
     view === "Recent reports" ||
     view === "Starred reports" ||
@@ -550,12 +1164,19 @@ export function WorkspaceViews({
       <FolderView
         title={view}
         reports={["New report", "Analytics", "Team"]}
-        revenue={data.summary.revenue}
+        deals={data.deals}
         onSelect={onNavigate}
         onCreate={view === "Manage folders" ? onCreate : undefined}
       />
     );
-  if (customer) return <CustomerView customer={customer} />;
+  if (customer)
+    return (
+      <CustomerView
+        customer={customer}
+        deals={data.deals}
+        onOwner={goOwner}
+      />
+    );
 
   return (
     <EmptyState

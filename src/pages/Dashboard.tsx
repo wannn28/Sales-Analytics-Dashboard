@@ -7,7 +7,7 @@ import { RevenueHeader } from "../components/dashboard/RevenueHeader";
 import { SalesOverview } from "../components/dashboard/SalesOverview";
 import { RevenueChart } from "../components/dashboard/RevenueChart";
 import { TeamPerformance } from "../components/dashboard/TeamPerformance";
-import { WorkspaceViews } from "../components/WorkspaceViews";
+import { WorkspaceViews, RecentDealsPanel } from "../components/WorkspaceViews";
 import { money } from "../components/ui";
 import { DIALOG_ONLY, isAnalyticsShell, reportTitle } from "../nav";
 import { loadDashboard } from "../services/api";
@@ -191,6 +191,10 @@ export function Dashboard({
                 search={search}
               />
             </div>
+            <RecentDealsPanel
+              deals={data.deals}
+              onCustomer={selectNav}
+            />
           </>
         ) : (
           <WorkspaceViews

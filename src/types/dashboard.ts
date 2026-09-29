@@ -57,6 +57,20 @@ export interface Notification {
   employee: string;
   customer: string;
 }
+export interface Deal {
+  id: number;
+  customerId: number;
+  customer: string;
+  employeeId: number;
+  employee: string;
+  employeeInitials: string;
+  employeeColor: string;
+  platformId: number;
+  platform: string;
+  amount: number;
+  status: "won" | "lost" | "open" | string;
+  closedAt: string;
+}
 export interface DashboardData {
   summary: Summary;
   revenue: RevenuePoint[];
@@ -66,4 +80,5 @@ export interface DashboardData {
   topSales: Employee | null;
   customers: Customer[];
   notifications: Notification[];
+  deals: Deal[];
 }

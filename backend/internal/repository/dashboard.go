@@ -98,6 +98,26 @@ func (r *Repository) Customers(ctx context.Context, f model.Filter) ([]model.Cus
 	}
 	return result, rows.Err()
 }
+func (r *Repository) Deals(ctx context.Context, f model.Filter) ([]model.Deal, error) {
+	limit := f.Limit
+	if limit <= 0 {
+		limit = 120
+	}
+	rows, err := r.DB.Query(ctx, `SELECT d.id,c.id,c.name,e.id,e.name,e.initials,e.color,p.id,p.name,d.amount,d.status,d.closed_at::text FROM deals d JOIN customers c ON c.id=d.customer_id JOIN employees e ON e.id=d.employee_id JOIN platforms p ON p.id=d.platform_id WHERE d.closed_at BETWEEN $1 AND $2 AND ($3=0 OR d.employee_id=$3) AND ($4=0 OR d.platform_id=$4) AND ($5=0 OR d.customer_id=$5) AND ($6='' OR d.status=$6) ORDER BY d.closed_at DESC,d.amount DESC,d.id DESC LIMIT $7`, f.Start, f.End, f.Employee, f.Platform, f.Customer, f.Status, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	result := []model.Deal{}
+	for rows.Next() {
+		var d model.Deal
+		if err := rows.Scan(&d.ID, &d.CustomerID, &d.Customer, &d.EmployeeID, &d.Employee, &d.EmployeeInitials, &d.EmployeeColor, &d.PlatformID, &d.Platform, &d.Amount, &d.Status, &d.ClosedAt); err != nil {
+			return nil, err
+		}
+		result = append(result, d)
+	}
+	return result, rows.Err()
+}
 func (r *Repository) Notifications(ctx context.Context, f model.Filter) ([]model.Notification, error) {
 	rows, err := r.DB.Query(ctx, `SELECT d.id,e.name,c.name,d.amount,d.closed_at::text FROM deals d JOIN employees e ON e.id=d.employee_id JOIN customers c ON c.id=d.customer_id WHERE d.status='won' AND d.closed_at BETWEEN $1 AND $2 AND ($3=0 OR d.employee_id=$3) ORDER BY d.closed_at DESC,d.amount DESC,d.id DESC LIMIT 25`, f.Start, f.End, f.Employee)
 	if err != nil {

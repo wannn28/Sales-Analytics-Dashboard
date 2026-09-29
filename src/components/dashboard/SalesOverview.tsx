@@ -124,10 +124,22 @@ export function SalesOverview({
                   formatter={(value) => money(Number(value))}
                 />
                 <Bar dataKey="revenue" radius={[12, 12, 8, 8]}>
-                  {shown.map((p, i) => (
+                  {shown.map((p) => (
                     <Cell
                       key={p.id}
-                      fill={i === 3 ? "url(#referrer-hatch)" : "#ffffff"}
+                      fill={
+                        selected === p.name
+                          ? "#cf2b5f"
+                          : p.name === "Dribbble"
+                            ? "#f3d5e0"
+                            : p.name === "Instagram"
+                              ? "#f7c9d8"
+                              : p.name === "Behance"
+                                ? "#d7e0f5"
+                                : p.name === "Google"
+                                  ? "#e8edd8"
+                                  : "#e5e2e0"
+                      }
                     />
                   ))}
                 </Bar>
