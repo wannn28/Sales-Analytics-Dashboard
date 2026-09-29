@@ -3,6 +3,9 @@ CREATE TABLE IF NOT EXISTS employees (
  leads integer NOT NULL CHECK (leads >= 0), kpi numeric(5,2) NOT NULL
 );
 CREATE TABLE IF NOT EXISTS platforms (id integer PRIMARY KEY, name text NOT NULL UNIQUE);
+INSERT INTO platforms (id, name) VALUES
+ (1, 'Dribbble'), (2, 'Instagram'), (3, 'Google'), (4, 'Behance')
+ON CONFLICT (id) DO NOTHING;
 CREATE TABLE IF NOT EXISTS customers (id integer PRIMARY KEY, name text NOT NULL);
 CREATE TABLE IF NOT EXISTS deals (
  id integer PRIMARY KEY,

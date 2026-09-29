@@ -11,6 +11,7 @@ import { Brand } from "../components/ui";
 import type { User } from "../App";
 export function Login({ onLogin }: { onLogin: (user: User) => void }) {
   const [visible, setVisible] = useState(false),
+    [mode, setMode] = useState<"login" | "register">("login"),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   return (
@@ -67,9 +68,19 @@ export function Login({ onLogin }: { onLogin: (user: User) => void }) {
           <span className="login-welcome-icon">
             <LockKeyhole size={23} />
           </span>
-          <div className="eyebrow">YOUR WORKSPACE, AWAITING</div>
-          <h2>Welcome back.</h2>
-          <p>Sign in to see the bigger picture.</p>
+          <div className="eyebrow">
+            {mode === "register"
+              ? "A NEW SPACE FOR YOUR WORK"
+              : "YOUR WORKSPACE, AWAITING"}
+          </div>
+          <h2>
+            {mode === "register" ? "Create your workspace." : "Welcome back."}
+          </h2>
+          <p>
+            {mode === "register"
+              ? "Start with a clean workspace for your team."
+              : "Sign in to see the bigger picture."}
+          </p>
           <form
             onSubmit={async (e) => {
               e.preventDefault();
@@ -77,24 +88,53 @@ export function Login({ onLogin }: { onLogin: (user: User) => void }) {
               setBusy(true);
               const form = new FormData(e.currentTarget);
               try {
-                const r = await fetch("/api/auth/login", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    email: form.get("email"),
-                    password: form.get("password"),
-                  }),
-                });
+                const registering = mode === "register";
+                const r = await fetch(
+                  registering ? "/api/auth/register" : "/api/auth/login",
+                  {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      email: form.get("email"),
+                      password: form.get("password"),
+                      ...(registering ? { name: form.get("name") } : {}),
+                    }),
+                  },
+                );
                 const result = await r.json();
-                if (!r.ok) throw new Error(result.error || "Unable to sign in");
+                if (!r.ok)
+                  throw new Error(
+                    result.error ||
+                      (registering
+                        ? "Unable to create account"
+                        : "Unable to sign in"),
+                  );
                 onLogin(result);
               } catch (e) {
-                setError(e instanceof Error ? e.message : "Unable to sign in");
+                setError(e instanceof Error ? e.message : "Unable to continue");
               } finally {
                 setBusy(false);
               }
             }}
           >
+            {mode === "register" && (
+              <>
+                <label htmlFor="name">Your name</label>
+                <div className="login-input">
+                  <input
+                    id="name"
+                    name="name"
+                    type="text"
+                    autoComplete="name"
+                    placeholder="Your name"
+                    required
+                    minLength={2}
+                    maxLength={80}
+                    disabled={busy}
+                  />
+                </div>
+              </>
+            )}
             <label htmlFor="email">Email address</label>
             <div className="login-input">
               <Mail size={17} />
@@ -115,7 +155,9 @@ export function Login({ onLogin }: { onLogin: (user: User) => void }) {
                 id="password"
                 name="password"
                 type={visible ? "text" : "password"}
-                autoComplete="current-password"
+                autoComplete={
+                  mode === "register" ? "new-password" : "current-password"
+                }
                 placeholder="Enter your password"
                 required
                 maxLength={72}
@@ -135,13 +177,26 @@ export function Login({ onLogin }: { onLogin: (user: User) => void }) {
               </p>
             )}
             <button className="login-submit" disabled={busy}>
-              {busy ? "Signing in…" : "Sign in to your workspace"}
+              {busy
+                ? "Please wait…"
+                : mode === "register"
+                  ? "Create my workspace"
+                  : "Sign in to your workspace"}
               <ArrowRight size={18} />
             </button>
           </form>
-          <p className="login-help">
-            Need access? Contact your workspace administrator.
-          </p>
+          <button
+            type="button"
+            className="login-switch"
+            onClick={() => {
+              setMode(mode === "login" ? "register" : "login");
+              setError("");
+            }}
+          >
+            {mode === "login"
+              ? "New here? Create an account"
+              : "Already have an account? Sign in"}
+          </button>
           <div className="secure-note">
             <LockKeyhole size={12} />
             Your workspace. Securely connected.

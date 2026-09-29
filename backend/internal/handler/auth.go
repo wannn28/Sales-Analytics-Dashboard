@@ -43,6 +43,7 @@ func NewAuth(db *pgxpool.Pool) *Auth {
 }
 func (a *Auth) Register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/auth/login", a.login)
+	mux.HandleFunc("POST /api/auth/register", a.register)
 	mux.HandleFunc("POST /api/auth/logout", a.logout)
 	mux.HandleFunc("GET /api/auth/me", func(w http.ResponseWriter, r *http.Request) {
 		u, err := a.user(r)
@@ -52,6 +53,54 @@ func (a *Auth) Register(mux *http.ServeMux) {
 		}
 		write(w, 200, u)
 	})
+}
+func (a *Auth) register(w http.ResponseWriter, r *http.Request) {
+	if !sameOrigin(r) {
+		write(w, 403, map[string]string{"error": "Invalid request origin"})
+		return
+	}
+	var input struct {
+		Name     string `json:"name"`
+		Email    string `json:"email"`
+		Password string `json:"password"`
+	}
+	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&input); err != nil || len([]rune(strings.TrimSpace(input.Name))) < 2 || len([]rune(input.Name)) > 80 || len(input.Password) < 12 || len(input.Password) > 72 || !strings.Contains(input.Email, "@") {
+		write(w, 400, map[string]string{"error": "Use a valid name, email, and password of at least 12 characters"})
+		return
+	}
+	email := strings.ToLower(strings.TrimSpace(input.Email))
+	name := strings.TrimSpace(input.Name)
+	hashValue, err := bcrypt.GenerateFromPassword([]byte(input.Password), 12)
+	if err != nil {
+		write(w, 500, map[string]string{"error": "Unable to create account"})
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+	var u User
+	err = a.DB.QueryRow(ctx, `INSERT INTO users(email,name,password_hash) VALUES($1,$2,$3) RETURNING id,email,name`, email, name, string(hashValue)).Scan(&u.ID, &u.Email, &u.Name)
+	if err != nil {
+		if strings.Contains(err.Error(), "duplicate key") {
+			write(w, 409, map[string]string{"error": "An account with that email already exists"})
+		} else {
+			write(w, 503, map[string]string{"error": "Unable to create account"})
+		}
+		return
+	}
+	token := make([]byte, 32)
+	if _, err = rand.Read(token); err != nil {
+		write(w, 500, map[string]string{"error": "Unable to start session"})
+		return
+	}
+	value := hex.EncodeToString(token)
+	if _, err = a.DB.Exec(ctx, `INSERT INTO sessions(token_hash,user_id,expires_at) VALUES($1,$2,$3)`, hash(value), u.ID, time.Now().Add(12*time.Hour)); err != nil {
+		write(w, 503, map[string]string{"error": "Unable to start session"})
+		return
+	}
+	http.SetCookie(w, a.cookie(value, 43200))
+	write(w, 201, u)
 }
 func authError(w http.ResponseWriter, err error) {
 	if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, http.ErrNoCookie) {

@@ -15,10 +15,8 @@ umask 077
 id sales-dashboard >/dev/null 2>&1 || useradd --system --no-create-home --shell /usr/sbin/nologin sales-dashboard
 db_admin_password="$(openssl rand -hex 32)"
 db_app_password="$(openssl rand -hex 32)"
-login_password="$(openssl rand -hex 14)"
 printf 'POSTGRES_USER=sales_owner\nPOSTGRES_PASSWORD=%s\nPOSTGRES_DB=postgres\n' "$db_admin_password" > /etc/sales-dashboard-db.env
 printf 'DATABASE_URL=postgres://sales_dashboard:%s@127.0.0.1:55435/sales_dashboard?sslmode=disable\nHTTP_ADDR=127.0.0.1:3002\nCOOKIE_SECURE=true\n' "$db_app_password" > /etc/sales-dashboard.env
-printf 'URL: https://sales.iquee.tech\nEmail: admin@sales.iquee.tech\nPassword: %s\n' "$login_password" > /root/sales-dashboard-access.txt
 docker volume create sales-dashboard-pgdata >/dev/null
 docker run -d --name sales-dashboard-db --restart unless-stopped --memory 384m --cpus 0.5 \
  --env-file /etc/sales-dashboard-db.env -p 127.0.0.1:55435:5432 \
@@ -31,8 +29,6 @@ set -a
 source /etc/sales-dashboard.env
 set +a
 "$release/sales-api" migrate
-"$release/sales-api" seed
-ADMIN_EMAIL=admin@sales.iquee.tech ADMIN_PASSWORD="$login_password" "$release/sales-api" create-admin
 ln -s "$release" /opt/sales-dashboard/current
 ln -s "$release/dist" /var/www/sales-dashboard
 chmod -R a+rX "$release/dist"

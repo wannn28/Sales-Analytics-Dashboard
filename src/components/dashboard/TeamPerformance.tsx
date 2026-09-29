@@ -47,7 +47,19 @@ export function TeamPerformance({
         <span />
       </div>
       {people.length === 0 && (
-        <p className="no-results">No team members match “{search}”.</p>
+        <div className="empty-team">
+          <strong>
+            {search
+              ? `No team members match “${search}”.`
+              : "Your team is empty."}
+          </strong>
+          {!search && (
+            <span>
+              Add your first sale or invite a teammate to start tracking
+              performance.
+            </span>
+          )}
+        </div>
       )}
       {people.map((person) => (
         <div

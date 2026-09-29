@@ -270,6 +270,17 @@ body {
   text-align: center;
   margin: 23px 0 38px;
 }
+.login-switch {
+  display: block;
+  margin: 20px auto 35px;
+  border: 0;
+  background: transparent;
+  color: #c62f60;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
 .secure-note {
   border-top: 1px solid #f0e9ec;
   padding-top: 22px;
