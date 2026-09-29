@@ -68,6 +68,10 @@ func (s *Service) Get(ctx context.Context, kind string, f model.Filter) (any, er
 			}
 		}
 		return best, nil
+	case "customers":
+		return s.Repo.Customers(ctx, f)
+	case "notifications":
+		return s.Repo.Notifications(ctx, f)
 	}
 	return nil, fmt.Errorf("unknown dashboard resource")
 }

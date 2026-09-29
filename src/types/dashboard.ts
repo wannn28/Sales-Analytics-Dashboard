@@ -41,6 +41,22 @@ export interface DynamicPoint {
   revenue: number;
   previous: number;
 }
+export interface Customer {
+  id: number;
+  name: string;
+  revenue: number;
+  deals: number;
+  lost: number;
+}
+export interface Notification {
+  id: number;
+  title: string;
+  body: string;
+  amount: number;
+  closedAt: string;
+  employee: string;
+  customer: string;
+}
 export interface DashboardData {
   summary: Summary;
   revenue: RevenuePoint[];
@@ -48,4 +64,6 @@ export interface DashboardData {
   dynamics: DynamicPoint[];
   team: Employee[];
   topSales: Employee | null;
+  customers: Customer[];
+  notifications: Notification[];
 }

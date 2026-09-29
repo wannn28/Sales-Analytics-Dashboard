@@ -9,39 +9,63 @@ import {
   LogOut,
 } from "lucide-react";
 import { Brand } from "../ui";
+
+const RAIL_ITEMS = [
+  [House, "Home"],
+  [LayoutDashboard, "Sales analytics"],
+  [FileText, "Reports"],
+  [Workflow, "Team"],
+  [PencilRuler, "Workspace"],
+] as const;
+
 export function IconSidebar({
+  active,
   onAction,
   onLogout,
+  hasNotifications,
 }: {
+  active: string;
   onAction: (name: string) => void;
   onLogout: () => void;
+  hasNotifications: boolean;
 }) {
+  const railActive =
+    active === "Home" ||
+    active === "Sales analytics" ||
+    active === "Reports" ||
+    active === "Team" ||
+    active === "Workspace"
+      ? active
+      : active === "iQuee" ||
+          active === "New report" ||
+          active === "Analytics"
+        ? "Sales analytics"
+        : "";
   return (
     <aside className="icon-sidebar" aria-label="Application">
-      <a className="brand-link" href="#" aria-label="Codename home">
+      <a
+        className="brand-link"
+        href="#"
+        aria-label="iQuee home"
+        onClick={(e) => {
+          e.preventDefault();
+          onAction("Home");
+        }}
+      >
         <Brand />
       </a>
       <div className="rail-links">
-        {[
-          [House, "Home"],
-          [LayoutDashboard, "Sales analytics"],
-          [FileText, "Reports"],
-          [Workflow, "Team"],
-          [PencilRuler, "Workspace"],
-        ].map(([Icon, label]) => {
-          const Component = Icon as typeof House;
-          return (
-            <button
-              key={String(label)}
-              className={`rail-button ${label === "Sales analytics" ? "active" : ""}`}
-              aria-label={String(label)}
-              title={String(label)}
-              onClick={() => onAction(String(label))}
-            >
-              <Component size={20} />
-            </button>
-          );
-        })}
+        {RAIL_ITEMS.map(([Icon, label]) => (
+          <button
+            key={label}
+            className={`rail-button ${railActive === label ? "active" : ""}`}
+            aria-label={label}
+            title={label}
+            onClick={() => onAction(label)}
+          >
+            <Icon size={20} />
+          </button>
+        ))}
       </div>
       <div className="rail-bottom">
         <button
@@ -53,16 +77,18 @@ export function IconSidebar({
           <LogOut size={19} />
         </button>
         <button
-          className="rail-button notification"
+          className={`rail-button notification ${active === "Notifications" ? "active" : ""}`}
           aria-label="Notifications"
+          title="Notifications"
           onClick={() => onAction("Notifications")}
         >
           <Bell size={19} />
-          <i />
+          {hasNotifications && <i />}
         </button>
         <button
           className="rail-button"
           aria-label="Settings"
+          title="Settings"
           onClick={() => onAction("Settings")}
         >
           <Settings size={20} />

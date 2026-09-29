@@ -7,10 +7,13 @@ import { RevenueHeader } from "../components/dashboard/RevenueHeader";
 import { SalesOverview } from "../components/dashboard/SalesOverview";
 import { RevenueChart } from "../components/dashboard/RevenueChart";
 import { TeamPerformance } from "../components/dashboard/TeamPerformance";
+import { WorkspaceViews } from "../components/WorkspaceViews";
 import { money } from "../components/ui";
+import { DIALOG_ONLY, isAnalyticsShell, reportTitle } from "../nav";
 import { loadDashboard } from "../services/api";
 import type { DashboardData, Employee } from "../types/dashboard";
 import type { User } from "../App";
+
 export function Dashboard({
   user,
   onLogout,
@@ -25,7 +28,7 @@ export function Dashboard({
   const [platform, setPlatform] = useState("Dribbble");
   const [search, setSearch] = useState("");
   const [navOpen, setNavOpen] = useState(false);
-  const [active, setActive] = useState("New report");
+  const [active, setActive] = useState("Sales analytics");
   const [title, setTitle] = useState("New report");
   const [modal, setModal] = useState("");
   const [toast, setToast] = useState("");
@@ -33,6 +36,7 @@ export function Dashboard({
   const [loading, setLoading] = useState(true);
   const [retry, setRetry] = useState(0);
   const dialogRef = useRef<HTMLDialogElement>(null);
+
   useEffect(() => {
     const controller = new AbortController();
     setLoading(true);
@@ -50,30 +54,27 @@ export function Dashboard({
       });
     return () => controller.abort();
   }, [period, employee, retry]);
+
   useEffect(() => {
     if (!toast) return;
     const timer = setTimeout(() => setToast(""), 3500);
     return () => clearTimeout(timer);
   }, [toast]);
+
   useEffect(() => {
     if (modal) dialogRef.current?.showModal();
     else dialogRef.current?.close();
   }, [modal]);
+
   const selectNav = (name: string) => {
-    if (
-      [
-        "New report",
-        "Analytics",
-        "Codename",
-        "Sales analytics",
-        "Home",
-        "Reports",
-      ].includes(name)
-    ) {
-      setActive(name);
-      setTitle(name === "Analytics" ? "Analytics" : "New report");
-    } else setModal(name);
+    if (DIALOG_ONLY.has(name)) {
+      setModal(name);
+      return;
+    }
+    setActive(name);
+    if (isAnalyticsShell(name)) setTitle(reportTitle(name));
   };
+
   const exportReport = () => {
     if (!data) return;
     const csv =
@@ -89,6 +90,7 @@ export function Dashboard({
     URL.revokeObjectURL(url);
     setToast("Report exported");
   };
+
   const share = async () => {
     try {
       await navigator.clipboard.writeText(window.location.href);
@@ -97,13 +99,18 @@ export function Dashboard({
       setToast("Copy the dashboard URL from your address bar");
     }
   };
-  const selectedMember = employee
-    ? data?.team.find((person) => person.id === employee)
-    : null;
-  const reportRows = data?.team ?? [];
+
+  const showAnalytics =
+    active === "Sales analytics" ||
+    active === "iQuee" ||
+    active === "New report" ||
+    active === "Analytics";
+
   return (
     <div className="app-shell">
       <IconSidebar
+        active={active}
+        hasNotifications={Boolean(data?.notifications.length)}
         onAction={selectNav}
         onLogout={async () => {
           try {
@@ -124,6 +131,7 @@ export function Dashboard({
         close={() => setNavOpen(false)}
         active={active}
         onSelect={selectNav}
+        customers={data?.customers ?? []}
       />
       {navOpen && (
         <button
@@ -150,7 +158,7 @@ export function Dashboard({
             <LoaderCircle className="spinner" />
             <p>Putting your report together…</p>
           </div>
-        ) : (
+        ) : showAnalytics ? (
           <>
             <RevenueHeader
               data={data}
@@ -184,6 +192,14 @@ export function Dashboard({
               />
             </div>
           </>
+        ) : (
+          <WorkspaceViews
+            view={active}
+            data={data}
+            onSelectEmployee={setEmployee}
+            onNavigate={selectNav}
+            onCreate={() => setModal("Create report")}
+          />
         )}
       </main>
       {toast && (
@@ -212,7 +228,9 @@ export function Dashboard({
             onSubmit={(e) => {
               e.preventDefault();
               const form = new FormData(e.currentTarget);
-              setTitle(String(form.get("name")));
+              const name = String(form.get("name"));
+              setTitle(name);
+              setActive("New report");
               setModal("");
               setToast("Report view created");
             }}
@@ -266,134 +284,7 @@ export function Dashboard({
               Sign out
             </button>
           </>
-        ) : modal === "Notifications" ? (
-          <p>
-            You’re all caught up. Your report is connected to the sales
-            database.
-          </p>
-        ) : modal === "Sales list" || modal === "Deals by user" ? (
-          <>
-            <p>Won deals by salesperson in the selected timeframe.</p>
-            {reportRows.map((person) => (
-              <button
-                className="detail-row detail-row-button"
-                key={person.id}
-                onClick={() => {
-                  setEmployee(person.id);
-                  setModal("");
-                }}
-              >
-                <span>{person.name}</span>
-                <strong>
-                  {person.deals} deals · {money(person.revenue, 0)}
-                </strong>
-              </button>
-            ))}
-            <button className="dark-button" onClick={exportReport}>
-              Export list
-            </button>
-          </>
-        ) : modal === "Goals" ? (
-          <>
-            <p>
-              Progress toward the 2023 revenue goal, calculated from the live
-              report data.
-            </p>
-            {reportRows.map((person) => (
-              <div className="goal-row" key={person.id}>
-                <span>
-                  {person.name}
-                  <small>{person.kpi.toFixed(2)} KPI</small>
-                </span>
-                <b>
-                  <i
-                    style={{
-                      width: `${Math.min(100, person.revenue / 2500)}%`,
-                    }}
-                  />
-                </b>
-                <strong>{money(person.revenue)}</strong>
-              </div>
-            ))}
-          </>
-        ) : modal === "Recent reports" ||
-          modal === "Starred reports" ||
-          modal === "Manage folders" ? (
-          <>
-            <p>
-              {modal === "Manage folders"
-                ? "Workspace folders"
-                : `${modal} built from your current report views.`}
-            </p>
-            {["New report", "Analytics", "Team performance"].map((report) => (
-              <button
-                className="detail-row detail-row-button"
-                key={report}
-                onClick={() => {
-                  setTitle(report);
-                  setActive(report);
-                  setModal("");
-                }}
-              >
-                <span>{report}</span>
-                <strong>{money(data?.summary.revenue ?? 0, 0)}</strong>
-              </button>
-            ))}
-            {modal === "Manage folders" && (
-              <button
-                className="dark-button"
-                onClick={() => {
-                  setModal("Create report");
-                }}
-              >
-                Add folder
-              </button>
-            )}
-          </>
-        ) : modal === "Deal duration" || modal === "Deal duration report" ? (
-          <>
-            <p>Average deal value and volume for the selected period.</p>
-            <div className="detail-row">
-              <span>Average deal value</span>
-              <strong>{money(data?.summary.averageValue ?? 0, 2)}</strong>
-            </div>
-            <div className="detail-row">
-              <span>Won deals</span>
-              <strong>{data?.summary.deals ?? 0}</strong>
-            </div>
-            <div className="detail-row">
-              <span>Win rate</span>
-              <strong>{(data?.summary.winRate ?? 0).toFixed(0)}%</strong>
-            </div>
-          </>
-        ) : modal === "Emails received" ? (
-          <>
-            <p>Activity summary from the current reporting window.</p>
-            <div className="detail-row">
-              <span>Sales team updates</span>
-              <strong>{reportRows.length}</strong>
-            </div>
-            <div className="detail-row">
-              <span>Reports refreshed</span>
-              <strong>Today</strong>
-            </div>
-            <div className="detail-row">
-              <span>Current owner</span>
-              <strong>{user.name}</strong>
-            </div>
-          </>
-        ) : (
-          <>
-            <p>
-              {selectedMember
-                ? `${selectedMember.name}'s performance is selected in the report.`
-                : "This workspace section is connected to the current report data."}
-            </p>
-            <button className="dark-button" onClick={() => setModal("")}>
-              Back to report
-            </button>
-          </>
-        )}
+        ) : null}
       </dialog>
     </div>
   );

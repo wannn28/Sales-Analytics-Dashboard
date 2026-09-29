@@ -50,3 +50,19 @@ type DynamicPoint struct {
 	Revenue  float64 `json:"revenue"`
 	Previous float64 `json:"previous"`
 }
+type Customer struct {
+	ID      int     `json:"id"`
+	Name    string  `json:"name"`
+	Revenue float64 `json:"revenue"`
+	Deals   int     `json:"deals"`
+	Lost    int     `json:"lost"`
+}
+type Notification struct {
+	ID        int     `json:"id"`
+	Title     string  `json:"title"`
+	Body      string  `json:"body"`
+	Amount    float64 `json:"amount"`
+	ClosedAt  string  `json:"closedAt"`
+	Employee  string  `json:"employee"`
+	Customer  string  `json:"customer"`
+}

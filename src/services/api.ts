@@ -22,16 +22,35 @@ export async function loadDashboard(
 ): Promise<DashboardData> {
   const query = new URLSearchParams({ period: days });
   if (employee) query.set("employee", String(employee));
-  const [summary, revenue, platforms, dynamics, team, topSales] =
-    await Promise.all([
-      get<DashboardData["summary"]>("summary", query, signal),
-      get<DashboardData["revenue"]>("revenue", query, signal),
-      get<DashboardData["platforms"]>("platforms", query, signal),
-      get<DashboardData["dynamics"]>("sales-dynamics", query, signal),
-      get<DashboardData["team"]>("team-performance", query, signal),
-      get<DashboardData["topSales"]>("top-sales", query, signal),
-    ]);
-  return { summary, revenue, platforms, dynamics, team, topSales };
+  const [
+    summary,
+    revenue,
+    platforms,
+    dynamics,
+    team,
+    topSales,
+    customers,
+    notifications,
+  ] = await Promise.all([
+    get<DashboardData["summary"]>("summary", query, signal),
+    get<DashboardData["revenue"]>("revenue", query, signal),
+    get<DashboardData["platforms"]>("platforms", query, signal),
+    get<DashboardData["dynamics"]>("sales-dynamics", query, signal),
+    get<DashboardData["team"]>("team-performance", query, signal),
+    get<DashboardData["topSales"]>("top-sales", query, signal),
+    get<DashboardData["customers"]>("customers", query, signal),
+    get<DashboardData["notifications"]>("notifications", query, signal),
+  ]);
+  return {
+    summary,
+    revenue,
+    platforms,
+    dynamics,
+    team,
+    topSales,
+    customers,
+    notifications,
+  };
 }
 
 export async function loadMemberDetails(

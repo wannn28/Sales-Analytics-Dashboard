@@ -82,6 +82,40 @@ func (r *Repository) Revenue(ctx context.Context, f model.Filter) ([]model.Reven
 	}
 	return result, rows.Err()
 }
+func (r *Repository) Customers(ctx context.Context, f model.Filter) ([]model.Customer, error) {
+	rows, err := r.DB.Query(ctx, `SELECT c.id,c.name,COALESCE(SUM(d.amount) FILTER(WHERE d.status='won'),0),COUNT(*) FILTER(WHERE d.status='won'),COUNT(*) FILTER(WHERE d.status='lost') FROM customers c LEFT JOIN deals d ON d.customer_id=c.id AND d.closed_at BETWEEN $1 AND $2 AND ($3=0 OR d.employee_id=$3) GROUP BY c.id ORDER BY c.id`, f.Start, f.End, f.Employee)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	result := []model.Customer{}
+	for rows.Next() {
+		var c model.Customer
+		if err := rows.Scan(&c.ID, &c.Name, &c.Revenue, &c.Deals, &c.Lost); err != nil {
+			return nil, err
+		}
+		result = append(result, c)
+	}
+	return result, rows.Err()
+}
+func (r *Repository) Notifications(ctx context.Context, f model.Filter) ([]model.Notification, error) {
+	rows, err := r.DB.Query(ctx, `SELECT d.id,e.name,c.name,d.amount,d.closed_at::text FROM deals d JOIN employees e ON e.id=d.employee_id JOIN customers c ON c.id=d.customer_id WHERE d.status='won' AND d.closed_at BETWEEN $1 AND $2 AND ($3=0 OR d.employee_id=$3) ORDER BY d.closed_at DESC,d.amount DESC,d.id DESC LIMIT 25`, f.Start, f.End, f.Employee)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	result := []model.Notification{}
+	for rows.Next() {
+		var n model.Notification
+		if err := rows.Scan(&n.ID, &n.Employee, &n.Customer, &n.Amount, &n.ClosedAt); err != nil {
+			return nil, err
+		}
+		n.Title = "Deal closed"
+		n.Body = n.Employee + " closed a deal with " + n.Customer
+		result = append(result, n)
+	}
+	return result, rows.Err()
+}
 func (r *Repository) Dynamics(ctx context.Context, f model.Filter) ([]model.DynamicPoint, error) {
 	rows, err := r.DB.Query(ctx, `WITH dates AS (SELECT generate_series($1::date,$2::date,'1 day')::date AS report_date), totals AS (SELECT closed_at,SUM(amount) total FROM deals WHERE status='won' AND ($3=0 OR employee_id=$3) GROUP BY closed_at) SELECT to_char(report_date,'YYYY-MM-DD'),COALESCE(c.total,0),COALESCE(p.total,0) FROM dates LEFT JOIN totals c ON c.closed_at=report_date LEFT JOIN totals p ON p.closed_at=report_date-($2::date-$1::date+1) ORDER BY report_date`, f.Start, f.End, f.Employee)
 	if err != nil {

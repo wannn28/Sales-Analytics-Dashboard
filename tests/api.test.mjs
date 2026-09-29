@@ -13,12 +13,16 @@ test('health, auth, filters, aggregate consistency, and session revocation', asy
   const response=await login(base);assert.equal(response.status,200);
   const setCookie=response.headers.get('set-cookie');assert.match(setCookie,/HttpOnly/i);assert.match(setCookie,/SameSite=Strict/i);
   const cookie=setCookie.split(';')[0];const get=async(path)=>{const r=await fetch(`${base}/api/v1/dashboard/${path}`,{headers:{Cookie:cookie}});assert.equal(r.status,200,path);return r.json();};
-  const [summary,team,platforms,revenue,dynamics,top]=await Promise.all(['summary','team-performance','platforms','revenue','sales-dynamics','top-sales'].map(get));
+  const [summary,team,platforms,revenue,dynamics,top,customers,notifications]=await Promise.all(['summary','team-performance','platforms','revenue','sales-dynamics','top-sales','customers','notifications'].map(get));
   assert.equal(summary.revenue,528976.82);assert.equal(summary.previousRevenue,501641.73);
   assert.ok(Math.abs(team.reduce((n,p)=>n+p.revenue,0)-summary.revenue)<.01);
   assert.ok(Math.abs(platforms.reduce((n,p)=>n+p.revenue,0)-summary.revenue)<.01);
   assert.ok(Math.abs(revenue.reduce((n,p)=>n+p.revenue,0)-summary.revenue)<.01);
   assert.ok(dynamics.length>30);assert.ok(top.deals>0);
+  assert.ok(Array.isArray(customers) && customers.length>=1);
+  assert.ok(customers.every((c)=>typeof c.name==='string' && !/Cargo2go|Cloud3r|Idioma|Syllables/.test(c.name)));
+  assert.ok(Array.isArray(notifications));
+  assert.ok(notifications.length===0 || notifications.every((n)=>n.title && n.body && n.customer));
   const member=await get('summary?employee=2');assert.equal(member.revenue,156841);
   const month=await get('summary?period=month');assert.ok(month.revenue<summary.revenue);
   const platform=await get('revenue?platform=1');assert.ok(Math.abs(platform.reduce((n,p)=>n+p.revenue,0)-platforms[0].revenue)<.01);

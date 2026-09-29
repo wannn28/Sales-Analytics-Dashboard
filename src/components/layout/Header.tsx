@@ -13,7 +13,7 @@ export function Header({
   return (
     <header className="app-header">
       <button className="workspace-selector" onClick={toggleNav}>
-        Codename.com
+        iQuee
         <ChevronDown size={12} />
       </button>
       <label className="search-box">
@@ -34,7 +34,7 @@ export function Header({
         >
           <Menu size={17} />
         </button>
-        <span className="profile-avatar" title="Codename workspace" />
+        <span className="profile-avatar" title="iQuee workspace" />
         <button
           className="round-button pink"
           onClick={onCreate}

@@ -5,7 +5,14 @@ INSERT INTO employees VALUES
  (3,'Eren Y.','EY','#c89d65',84,0.79),
  (4,'Levi A.','LA','#868b86',40,0.82) ON CONFLICT DO NOTHING;
 INSERT INTO platforms VALUES (1,'Dribbble'),(2,'Instagram'),(3,'Behance'),(4,'Google'),(5,'Other') ON CONFLICT DO NOTHING;
-INSERT INTO customers VALUES (1,'Rolf Inc.'),(2,'Cargo2go'),(3,'Cloud3r'),(4,'Idioma'),(5,'Syllables'),(6,'North Studio') ON CONFLICT DO NOTHING;
+INSERT INTO customers VALUES
+ (1,'Rolf Inc.'),
+ (2,'Meridian Logistics'),
+ (3,'Brightwave Media'),
+ (4,'Harbor Collective'),
+ (5,'Summit Retail'),
+ (6,'North Studio')
+ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name;
 WITH targets(employee_id, total, count) AS (VALUES (1,209633.00,80),(2,156841.00,72),(3,117115.00,54),(4,45387.82,22)),
 raw AS (
  SELECT t.*, n, CASE WHEN n=1 THEN 42300.00 ELSE trunc((total-42300)/(count-1),2) END AS base

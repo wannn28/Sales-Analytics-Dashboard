@@ -8,20 +8,24 @@ import {
   Link,
   X,
 } from "lucide-react";
+import type { Customer } from "../../types/dashboard";
+
 export function NavigationSidebar({
   open,
   close,
   active,
   onSelect,
+  customers,
 }: {
   open: boolean;
   close: () => void;
   active: string;
   onSelect: (name: string) => void;
+  customers: Customer[];
 }) {
   const [dashboardOpen, setDashboardOpen] = useState(true);
-  const [sharedOpen, setSharedOpen] = useState(true);
-  const [reportsOpen, setReportsOpen] = useState(true);
+  const [accountsOpen, setAccountsOpen] = useState(true);
+  const [sharedReportsOpen, setSharedReportsOpen] = useState(true);
   const [myReportsOpen, setMyReportsOpen] = useState(true);
   const item = (label: string, badge?: string) => (
     <button
@@ -78,24 +82,33 @@ export function NavigationSidebar({
       </div>
       {dashboardOpen && (
         <div className="nav-tree">
-          {item("Codename")}
+          {item("iQuee")}
           <div className="nav-heading">
             <button
               className="nav-section-toggle"
-              onClick={() => setSharedOpen(!sharedOpen)}
-              aria-expanded={sharedOpen}
+              onClick={() => setAccountsOpen(!accountsOpen)}
+              aria-expanded={accountsOpen}
             >
-              {sharedOpen ? <ChevronUp size={11} /> : <ChevronDown size={11} />}{" "}
-              Shared with me
+              {accountsOpen ? (
+                <ChevronUp size={11} />
+              ) : (
+                <ChevronDown size={11} />
+              )}{" "}
+              Accounts
             </button>
           </div>
-          {sharedOpen && (
+          {accountsOpen && (
             <div className="nav-tree">
-              {item("Cargo2go")}
-              {item("Cloud3r", "2")}
-              {item("Idioma")}
-              {item("Syllables")}
-              {item("x-0b")}
+              {customers.length ? (
+                customers.map((customer) =>
+                  item(
+                    customer.name,
+                    customer.deals > 0 ? String(customer.deals) : undefined,
+                  ),
+                )
+              ) : (
+                <p className="nav-empty">No accounts yet</p>
+              )}
             </div>
           )}
         </div>
@@ -109,52 +122,50 @@ export function NavigationSidebar({
           <Plus size={13} />
         </button>
       </div>
-      {reportsOpen && (
-        <div className="nav-tree">
-          <div className="nav-heading">
-            <button
-              className="nav-section-toggle"
-              onClick={() => setReportsOpen(!reportsOpen)}
-              aria-expanded={reportsOpen}
-            >
-              {reportsOpen ? (
-                <ChevronUp size={11} />
-              ) : (
-                <ChevronDown size={11} />
-              )}{" "}
-              Share with me
-            </button>
-          </div>
-          {reportsOpen && (
-            <div className="nav-tree">
-              {item("Deals by user")}
-              {item("Deal duration")}
-            </div>
-          )}
-          <div className="nav-heading">
-            <button
-              className="nav-section-toggle"
-              onClick={() => setMyReportsOpen(!myReportsOpen)}
-              aria-expanded={myReportsOpen}
-            >
-              {myReportsOpen ? (
-                <ChevronUp size={11} />
-              ) : (
-                <ChevronDown size={11} />
-              )}{" "}
-              My reports
-            </button>
-          </div>
-          {myReportsOpen && (
-            <>
-              {item("Emails received")}
-              {item("Deal duration report")}
-              {item("New report")}
-              {item("Analytics", "7")}
-            </>
-          )}
+      <div className="nav-tree">
+        <div className="nav-heading">
+          <button
+            className="nav-section-toggle"
+            onClick={() => setSharedReportsOpen(!sharedReportsOpen)}
+            aria-expanded={sharedReportsOpen}
+          >
+            {sharedReportsOpen ? (
+              <ChevronUp size={11} />
+            ) : (
+              <ChevronDown size={11} />
+            )}{" "}
+            Team reports
+          </button>
         </div>
-      )}
+        {sharedReportsOpen && (
+          <div className="nav-tree">
+            {item("Deals by user")}
+            {item("Deal duration")}
+          </div>
+        )}
+        <div className="nav-heading">
+          <button
+            className="nav-section-toggle"
+            onClick={() => setMyReportsOpen(!myReportsOpen)}
+            aria-expanded={myReportsOpen}
+          >
+            {myReportsOpen ? (
+              <ChevronUp size={11} />
+            ) : (
+              <ChevronDown size={11} />
+            )}{" "}
+            My reports
+          </button>
+        </div>
+        {myReportsOpen && (
+          <>
+            {item("Platform revenue")}
+            {item("Deal duration report")}
+            {item("New report")}
+            {item("Analytics", String(Math.min(7, customers.length || 7)))}
+          </>
+        )}
+      </div>
       <button
         className="manage-folders"
         onClick={() => onSelect("Manage folders")}

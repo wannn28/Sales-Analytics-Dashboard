@@ -19,7 +19,7 @@ export function Login({ onLogin }: { onLogin: (user: User) => void }) {
       <section className="login-story">
         <div className="login-brand">
           <Brand />
-          Codename<span>Sales workspace</span>
+          iQuee<span>Sales workspace</span>
         </div>
         <div className="login-story-content">
           <div className="eyebrow">
@@ -56,13 +56,13 @@ export function Login({ onLogin }: { onLogin: (user: User) => void }) {
         </div>
         <div className="login-story-footer">
           A little perspective goes a long way.
-          <span>© {new Date().getFullYear()} Codename</span>
+          <span>© {new Date().getFullYear()} iQuee</span>
         </div>
       </section>
       <section className="login-form-panel">
         <div className="login-mobile-brand">
           <Brand />
-          Codename
+          iQuee
         </div>
         <div className="login-form-inner">
           <span className="login-welcome-icon">
